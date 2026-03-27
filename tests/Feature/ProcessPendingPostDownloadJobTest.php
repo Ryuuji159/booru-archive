@@ -4,6 +4,7 @@ use App\Actions\ProcessPendingPostDownloadAction;
 use App\Jobs\ProcessPendingPostDownload;
 use App\Models\Post;
 use App\Models\Tag;
+use Carbon\CarbonImmutable;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
@@ -169,6 +170,69 @@ it('retries failed posts on later runs while they are still under the attempt li
         ->and($post->downloaded_at)->not->toBeNull()
         ->and($post->preview_path)->not->toBeNull()
         ->and($post->last_download_error)->toBeNull();
+});
+
+it('returns stale downloading posts to pending and retries them on the next pass', function () {
+    Storage::fake('local');
+
+    $fileContents = 'stale-downloading-post-image';
+    $md5 = md5($fileContents);
+
+    $post = Post::query()->create([
+        'source_site' => 'konachan',
+        'source_post_id' => 401295,
+        'md5' => $md5,
+        'file_ext' => 'jpg',
+        'source_file_url' => 'https://konachan.com/image/post-401295.jpg',
+        'source_preview_url' => 'https://konachan.com/data/preview/post-401295.jpg',
+        'download_status' => Post::STATUS_DOWNLOADING,
+        'download_attempts' => 1,
+    ]);
+    $post->forceFill([
+        'updated_at' => CarbonImmutable::now()->subMinutes(20),
+    ])->saveQuietly();
+
+    Http::fake([
+        'https://konachan.com/image/post-401295.jpg' => Http::response($fileContents, 200),
+        'https://konachan.com/data/preview/post-401295.jpg' => Http::response('preview', 200),
+    ]);
+
+    app(ProcessPendingPostDownload::class)->handle(app(ProcessPendingPostDownloadAction::class));
+
+    $post->refresh();
+
+    expect($post->download_status)->toBe(Post::STATUS_DOWNLOADED)
+        ->and($post->download_attempts)->toBe(2)
+        ->and($post->downloaded_at)->not->toBeNull()
+        ->and($post->last_download_error)->toBeNull();
+});
+
+it('does not recycle downloading posts that were updated recently', function () {
+    Storage::fake('local');
+
+    $post = Post::query()->create([
+        'source_site' => 'konachan',
+        'source_post_id' => 401296,
+        'md5' => 'eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee',
+        'file_ext' => 'jpg',
+        'source_file_url' => 'https://konachan.com/image/post-401296.jpg',
+        'download_status' => Post::STATUS_DOWNLOADING,
+        'download_attempts' => 1,
+    ]);
+    $post->forceFill([
+        'updated_at' => CarbonImmutable::now()->subMinutes(5),
+    ])->saveQuietly();
+
+    Http::fake();
+
+    app(ProcessPendingPostDownload::class)->handle(app(ProcessPendingPostDownloadAction::class));
+
+    $post->refresh();
+
+    expect($post->download_status)->toBe(Post::STATUS_DOWNLOADING)
+        ->and($post->download_attempts)->toBe(1);
+
+    Http::assertNothingSent();
 });
 
 it('does not retry failed posts that already exhausted the attempt limit', function () {

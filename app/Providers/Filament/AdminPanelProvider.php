@@ -2,6 +2,8 @@
 
 namespace App\Providers\Filament;
 
+use App\Filament\Widgets\PostStatusChart;
+use App\Filament\Widgets\ScrapeRequestStatusChart;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
 use Filament\Http\Middleware\DisableBladeIconComponents;
@@ -39,6 +41,8 @@ class AdminPanelProvider extends PanelProvider
             ])
             ->discoverWidgets(in: app_path('Filament/Widgets'), for: 'App\Filament\Widgets')
             ->widgets([
+                PostStatusChart::class,
+                ScrapeRequestStatusChart::class,
                 AccountWidget::class,
                 FilamentInfoWidget::class,
             ])

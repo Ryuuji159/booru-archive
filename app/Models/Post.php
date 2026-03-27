@@ -76,4 +76,31 @@ class Post extends Model
                 });
         });
     }
+
+    public function scopeReadyForGallery(Builder $query): Builder
+    {
+        return $query
+            ->where('download_status', self::STATUS_DOWNLOADED)
+            ->whereNotNull('storage_path')
+            ->whereNotNull('preview_path');
+    }
+
+    public function scopeOrderedForGallery(Builder $query): Builder
+    {
+        return $query->orderBy('id');
+    }
+
+    /**
+     * @param  array<int, string>  $tags
+     */
+    public function scopeMatchingAllTags(Builder $query, array $tags): Builder
+    {
+        foreach ($tags as $tag) {
+            $query->whereHas('tags', function (Builder $query) use ($tag): void {
+                $query->where('name', $tag);
+            });
+        }
+
+        return $query;
+    }
 }

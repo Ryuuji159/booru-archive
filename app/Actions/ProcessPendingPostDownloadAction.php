@@ -15,6 +15,8 @@ class ProcessPendingPostDownloadAction
 {
     private const BATCH_SIZE = 100;
 
+    private const STALE_DOWNLOADING_AFTER_MINUTES = 15;
+
     private const FULL_DIRECTORY = 'full';
 
     private const PREVIEW_DIRECTORY = 'preview';
@@ -25,6 +27,8 @@ class ProcessPendingPostDownloadAction
 
     public function handle(): int
     {
+        $this->releaseStaleDownloads();
+
         $posts = $this->runWithDatabaseLockRetry(function (): Collection {
             return DB::transaction(function (): Collection {
                 /** @var Collection<int, Post> $posts */
@@ -57,6 +61,21 @@ class ProcessPendingPostDownloadAction
         }
 
         return $posts->count();
+    }
+
+    private function releaseStaleDownloads(): void
+    {
+        $staleBefore = now()->subMinutes(self::STALE_DOWNLOADING_AFTER_MINUTES);
+
+        $this->runWithDatabaseLockRetry(function () use ($staleBefore): void {
+            Post::query()
+                ->where('download_status', Post::STATUS_DOWNLOADING)
+                ->where('updated_at', '<=', $staleBefore)
+                ->update([
+                    'download_status' => Post::STATUS_PENDING,
+                    'last_download_error' => $this->staleDownloadMessage(),
+                ]);
+        });
     }
 
     private function processClaimedPost(Post $claimedPost): ?Post
@@ -414,6 +433,14 @@ class ProcessPendingPostDownloadAction
         $this->runWithDatabaseLockRetry(function () use ($post): void {
             Post::query()->whereKey($post->getKey())->delete();
         });
+    }
+
+    private function staleDownloadMessage(): string
+    {
+        return sprintf(
+            'Download claim expired after %d minutes without updates and was returned to pending.',
+            self::STALE_DOWNLOADING_AFTER_MINUTES,
+        );
     }
 
     /**
