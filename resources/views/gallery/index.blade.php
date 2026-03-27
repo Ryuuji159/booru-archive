@@ -22,11 +22,15 @@
     $adminPanel = filament()->getPanel('admin');
     $adminLinkUrl = auth()->check() ? $adminPanel?->getUrl() : $adminPanel?->getLoginUrl();
     $adminLinkLabel = auth()->check() ? 'admin' : 'login';
+    $previousPageUrl = $posts->previousPageUrl();
+    $nextPageUrl = $posts->nextPageUrl();
 @endphp
 <main class="mx-auto flex min-h-screen max-w-7xl flex-col px-4 py-6 sm:px-6 lg:px-8">
     <header class="mb-6">
         <div class="mb-4 flex items-center justify-between gap-4">
-            <h1 class="text-lg font-medium text-white">booru archive</h1>
+            <a href="{{ route('home') }}" class="text-lg font-medium text-white transition hover:text-slate-200">
+                booru archive
+            </a>
             @if ($adminLinkUrl)
                 <a href="{{ $adminLinkUrl }}" class="text-sm text-slate-400 transition hover:text-white">
                     {{ $adminLinkLabel }}
@@ -97,5 +101,32 @@
         @endif
     </section>
 </main>
+<script>
+    document.addEventListener('keydown', function (event) {
+        if (event.defaultPrevented || event.metaKey || event.ctrlKey || event.altKey) {
+            return;
+        }
+
+        const target = event.target;
+
+        if (
+            target instanceof HTMLElement &&
+            (
+                target.isContentEditable ||
+                ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName)
+            )
+        ) {
+            return;
+        }
+
+        if (event.key === 'ArrowLeft' && @js($previousPageUrl)) {
+            window.location.href = @js($previousPageUrl);
+        }
+
+        if (event.key === 'ArrowRight' && @js($nextPageUrl)) {
+            window.location.href = @js($nextPageUrl);
+        }
+    });
+</script>
 </body>
 </html>

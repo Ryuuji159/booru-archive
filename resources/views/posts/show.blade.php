@@ -23,20 +23,56 @@
     $adminLinkUrl = auth()->check() ? $adminPanel?->getUrl() : $adminPanel?->getLoginUrl();
     $adminLinkLabel = auth()->check() ? 'admin' : 'login';
     $backUrl = route('home', $navigationQuery);
+    $rawTags = $navigationQuery['tags'] ?? '';
     $previousUrl = $previousPost ? route('posts.show', ['post' => $previousPost, ...$navigationQuery]) : null;
     $nextUrl = $nextPost ? route('posts.show', ['post' => $nextPost, ...$navigationQuery]) : null;
 @endphp
-<main class="mx-auto max-w-5xl px-4 py-6 sm:px-6 lg:px-8">
-    <header class="mb-6 flex items-center justify-between gap-4">
-        <a href="{{ $backUrl }}" class="text-sm text-slate-400 transition hover:text-white">
-            back
-        </a>
-        <div class="flex items-center gap-4">
+<main class="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
+    <div class="mb-6">
+        <div class="mb-4 flex items-center justify-between gap-4">
+            <a href="{{ route('home') }}" class="text-lg font-medium text-white transition hover:text-slate-200">
+                booru archive
+            </a>
             @if ($adminLinkUrl)
                 <a href="{{ $adminLinkUrl }}" class="text-sm text-slate-400 transition hover:text-white">
                     {{ $adminLinkLabel }}
                 </a>
             @endif
+        </div>
+
+        <form method="GET" action="{{ route('home') }}" class="flex flex-col gap-3 sm:flex-row">
+            <input
+                id="tags"
+                name="tags"
+                type="text"
+                value="{{ $rawTags }}"
+                placeholder="touhou rating:safe blonde_hair"
+                class="min-w-0 flex-1 rounded-lg border border-white/10 bg-slate-900 px-4 py-3 text-sm text-white outline-none placeholder:text-slate-500 focus:border-slate-400"
+            />
+            <div class="flex gap-3">
+                <button
+                    type="submit"
+                    class="rounded-lg bg-white px-4 py-3 text-sm font-medium text-slate-950 transition hover:bg-slate-200"
+                >
+                    Buscar
+                </button>
+                @if ($rawTags !== '')
+                    <a
+                        href="{{ route('home') }}"
+                        class="rounded-lg border border-white/10 px-4 py-3 text-sm text-slate-300 transition hover:bg-white/5"
+                    >
+                        Limpiar
+                    </a>
+                @endif
+            </div>
+        </form>
+    </div>
+
+    <header class="mb-6 flex items-center justify-between gap-4">
+        <a href="{{ $backUrl }}" class="text-sm text-slate-400 transition hover:text-white">
+            back
+        </a>
+        <div class="flex items-center gap-4">
             @if ($previousUrl)
                 <a href="{{ $previousUrl }}" class="text-sm text-slate-400 transition hover:text-white">
                     prev
@@ -47,20 +83,18 @@
                     next
                 </a>
             @endif
-            <a href="{{ route('posts.media.full', $post) }}" target="_blank" rel="noreferrer"
-               class="text-sm text-slate-400 transition hover:text-white">
-                open full
-            </a>
         </div>
     </header>
 
-    <section class="flex h-[70vh] items-center justify-center">
-        <img
-            src="{{ route('posts.media.full', $post) }}"
-            alt="Post {{ $post->source_post_id }}"
-            class="max-h-full max-w-full rounded-lg"
-        >
-    </section>
+    <a href="{{ route('posts.media.full', $post) }}" target="_blank" rel="noreferrer" class="block">
+        <section class="flex h-[60vh] items-center justify-center">
+            <img
+                src="{{ route('posts.media.full', $post) }}"
+                alt="Post {{ $post->source_post_id }}"
+                class="max-h-full max-w-full rounded-lg"
+            >
+        </section>
+    </a>
 
     @if ($contextPosts->isNotEmpty())
         <section class="mt-4">
@@ -130,9 +164,12 @@
                 <div class="mb-2 text-slate-500">tags</div>
                 <div class="flex flex-wrap gap-2">
                     @forelse ($post->tags as $tag)
-                        <span class="rounded-md bg-white/5 px-2 py-1 text-xs text-slate-300">
+                        <a
+                            href="{{ route('home', ['tags' => $tag->name]) }}"
+                            class="rounded-md bg-white/5 px-2 py-1 text-xs text-slate-300 transition hover:bg-white/10 hover:text-white"
+                        >
                             {{ $tag->name }}
-                        </span>
+                        </a>
                     @empty
                         <span>-</span>
                     @endforelse
