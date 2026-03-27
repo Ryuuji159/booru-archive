@@ -1,14 +1,14 @@
 <?php
 
-namespace App\Filament\Resources\Posts\Pages;
+namespace App\Filament\Resources\Tags\Pages;
 
-use App\Filament\Resources\Posts\PostsResource;
+use App\Filament\Resources\Tags\TagResource;
 use Filament\Actions\EditAction;
 use Filament\Resources\Pages\ViewRecord;
 
-class ViewPosts extends ViewRecord
+class ViewTag extends ViewRecord
 {
-    protected static string $resource = PostsResource::class;
+    protected static string $resource = TagResource::class;
 
     protected function getHeaderActions(): array
     {
