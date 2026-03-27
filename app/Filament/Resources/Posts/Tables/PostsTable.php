@@ -8,6 +8,7 @@ use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 
 class PostsTable
@@ -38,13 +39,23 @@ class PostsTable
                     ->state(fn (Post $record): string => $record->width && $record->height ? "{$record->width}x{$record->height}" : '-'),
                 TextColumn::make('download_status')
                     ->badge()
+                    ->color(fn (string $state): string => match ($state) {
+                        Post::STATUS_PENDING => 'gray',
+                        Post::STATUS_DOWNLOADING => 'warning',
+                        Post::STATUS_DOWNLOADED => 'success',
+                        Post::STATUS_FAILED => 'danger',
+                        Post::STATUS_SKIPPED => 'info',
+                        default => 'gray',
+                    })
                     ->sortable(),
                 IconColumn::make('is_downloaded')
                     ->label('Downloaded')
                     ->state(fn (Post $record): bool => $record->downloaded_at !== null)
                     ->boolean(),
                 TextColumn::make('tags.name')
-                    ->badge(),
+                    ->label('Tags')
+                    ->badge()
+                    ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('downloaded_at')
                     ->dateTime()
                     ->sortable()
@@ -59,7 +70,27 @@ class PostsTable
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
-                //
+                SelectFilter::make('download_status')
+                    ->label('Status')
+                    ->multiple()
+                    ->options([
+                        Post::STATUS_PENDING => 'Pending',
+                        Post::STATUS_DOWNLOADING => 'Downloading',
+                        Post::STATUS_DOWNLOADED => 'Downloaded',
+                        Post::STATUS_FAILED => 'Failed',
+                        Post::STATUS_SKIPPED => 'Skipped',
+                    ]),
+                SelectFilter::make('rating')
+                    ->multiple()
+                    ->options([
+                        's' => 'Safe',
+                        'q' => 'Questionable',
+                        'e' => 'Explicit',
+                    ]),
+                SelectFilter::make('tags')
+                    ->relationship('tags', 'name')
+                    ->multiple()
+                    ->searchable(),
             ])
             ->recordActions([
                 EditAction::make(),

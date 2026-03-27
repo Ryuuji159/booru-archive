@@ -6,6 +6,16 @@ use Illuminate\Database\Eloquent\Model;
 
 class ScrapeRequest extends Model
 {
+    public const STATUS_PENDING = 'pending';
+
+    public const STATUS_RUNNING = 'running';
+
+    public const STATUS_COMPLETED = 'completed';
+
+    public const STATUS_FAILED = 'failed';
+
+    public const STATUS_CANCELLED = 'cancelled';
+
     protected $fillable = [
         'site',
         'parameters',
@@ -26,5 +36,10 @@ class ScrapeRequest extends Model
             'started_at' => 'datetime',
             'finished_at' => 'datetime',
         ];
+    }
+
+    public function scopePending($query)
+    {
+        return $query->where('status', self::STATUS_PENDING);
     }
 }

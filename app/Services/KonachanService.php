@@ -10,7 +10,7 @@ class KonachanService
      * @param  array<int, string>  $tags
      * @return array<int, array<string, mixed>>
      */
-    public function posts(array $tags = [], int $limit = 10): array
+    public function posts(array $tags = [], ?int $limit = null, int $page = 1): array
     {
         $host = config('services.konachan.host');
 
@@ -19,6 +19,7 @@ class KonachanService
             ->get("{$host}/post.json", [
                 'tags' => implode(' ', $tags),
                 'limit' => $limit,
+                'page' => $page,
             ]);
 
         if ($response->failed()) {

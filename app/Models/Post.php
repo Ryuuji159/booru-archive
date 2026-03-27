@@ -2,11 +2,24 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
 class Post extends Model
 {
+    public const MAX_DOWNLOAD_ATTEMPTS = 5;
+
+    public const STATUS_PENDING = 'pending';
+
+    public const STATUS_DOWNLOADING = 'downloading';
+
+    public const STATUS_DOWNLOADED = 'downloaded';
+
+    public const STATUS_FAILED = 'failed';
+
+    public const STATUS_SKIPPED = 'skipped';
+
     protected $fillable = [
         'source_site',
         'source_post_id',
@@ -48,5 +61,18 @@ class Post extends Model
     public function tags(): BelongsToMany
     {
         return $this->belongsToMany(Tag::class);
+    }
+
+    public function scopePendingDownload(Builder $query): Builder
+    {
+        return $query->where(function (Builder $query): void {
+            $query
+                ->where('download_status', self::STATUS_PENDING)
+                ->orWhere(function (Builder $query): void {
+                    $query
+                        ->where('download_status', self::STATUS_FAILED)
+                        ->where('download_attempts', '<', self::MAX_DOWNLOAD_ATTEMPTS);
+                });
+        });
     }
 }
