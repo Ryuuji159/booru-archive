@@ -35,4 +35,8 @@ return [
         ],
     ],
 
+    'konachan' => [
+        'host' => env('KONACHAN_HOST', 'https://konachan.com'),
+    ],
+
 ];
