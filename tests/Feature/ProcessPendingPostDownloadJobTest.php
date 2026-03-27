@@ -12,6 +12,7 @@ it('downloads the first pending post to the local disk using a hash-based path',
     Storage::fake('local');
 
     $fileContents = 'post-image-binary';
+    $previewContents = 'post-preview-binary';
     $md5 = md5($fileContents);
 
     $post = Post::query()->create([
@@ -20,18 +21,27 @@ it('downloads the first pending post to the local disk using a hash-based path',
         'md5' => $md5,
         'file_ext' => 'jpg',
         'source_file_url' => 'https://konachan.com/image/post-401288.jpg',
+        'source_preview_url' => 'https://konachan.com/data/preview/post-401288.jpg',
         'download_status' => Post::STATUS_PENDING,
     ]);
 
     Http::fake([
         'https://konachan.com/image/post-401288.jpg' => Http::response($fileContents, 200),
+        'https://konachan.com/data/preview/post-401288.jpg' => Http::response($previewContents, 200),
     ]);
 
     app(ProcessPendingPostDownload::class)->handle(app(ProcessPendingPostDownloadAction::class));
 
     $post->refresh();
     $expectedPath = sprintf(
-        '%s/%s/%s/%s.jpg',
+        'full/%s/%s/%s/%s.jpg',
+        substr($md5, 0, 2),
+        substr($md5, 2, 2),
+        substr($md5, 4, 2),
+        $md5,
+    );
+    $expectedPreviewPath = sprintf(
+        'preview/%s/%s/%s/%s.jpg',
         substr($md5, 0, 2),
         substr($md5, 2, 2),
         substr($md5, 4, 2),
@@ -41,13 +51,19 @@ it('downloads the first pending post to the local disk using a hash-based path',
     expect($post->download_status)->toBe(Post::STATUS_DOWNLOADED)
         ->and($post->storage_disk)->toBe('local')
         ->and($post->storage_path)->toBe($expectedPath)
+        ->and($post->preview_path)->toBe($expectedPreviewPath)
         ->and($post->downloaded_at)->not->toBeNull()
         ->and($post->file_size)->toBe(strlen($fileContents));
 
     Storage::disk('local')->assertExists($expectedPath);
+    Storage::disk('local')->assertExists($expectedPreviewPath);
 
     Http::assertSent(function (Request $request): bool {
         return $request->url() === 'https://konachan.com/image/post-401288.jpg';
+    });
+
+    Http::assertSent(function (Request $request): bool {
+        return $request->url() === 'https://konachan.com/data/preview/post-401288.jpg';
     });
 });
 
@@ -63,6 +79,7 @@ it('processes multiple pending posts in a single batch and keeps going after a f
         'md5' => md5($firstContents),
         'file_ext' => 'jpg',
         'source_file_url' => 'https://konachan.com/image/post-401288.jpg',
+        'source_preview_url' => 'https://konachan.com/data/preview/post-401288.jpg',
         'download_status' => Post::STATUS_PENDING,
     ]);
 
@@ -72,6 +89,7 @@ it('processes multiple pending posts in a single batch and keeps going after a f
         'md5' => 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
         'file_ext' => 'jpg',
         'source_file_url' => 'https://konachan.com/image/post-401289.jpg',
+        'source_preview_url' => 'https://konachan.com/data/preview/post-401289.jpg',
         'download_status' => Post::STATUS_PENDING,
     ]);
 
@@ -81,13 +99,16 @@ it('processes multiple pending posts in a single batch and keeps going after a f
         'md5' => md5($thirdContents),
         'file_ext' => 'png',
         'source_file_url' => 'https://konachan.com/image/post-401290.png',
+        'source_preview_url' => 'https://konachan.com/data/preview/post-401290.jpg',
         'download_status' => Post::STATUS_PENDING,
     ]);
 
     Http::fake([
         'https://konachan.com/image/post-401288.jpg' => Http::response($firstContents, 200),
+        'https://konachan.com/data/preview/post-401288.jpg' => Http::response('first-preview', 200),
         'https://konachan.com/image/post-401289.jpg' => Http::response('missing', 404),
         'https://konachan.com/image/post-401290.png' => Http::response($thirdContents, 200),
+        'https://konachan.com/data/preview/post-401290.jpg' => Http::response('third-preview', 200),
     ]);
 
     app(ProcessPendingPostDownload::class)->handle(app(ProcessPendingPostDownloadAction::class));
@@ -97,9 +118,11 @@ it('processes multiple pending posts in a single batch and keeps going after a f
     $thirdPost->refresh();
 
     expect($firstPost->download_status)->toBe(Post::STATUS_DOWNLOADED)
+        ->and($firstPost->preview_path)->not->toBeNull()
         ->and($secondPost->download_status)->toBe(Post::STATUS_FAILED)
         ->and($secondPost->last_download_error)->toContain('status [404]')
-        ->and($thirdPost->download_status)->toBe(Post::STATUS_DOWNLOADED);
+        ->and($thirdPost->download_status)->toBe(Post::STATUS_DOWNLOADED)
+        ->and($thirdPost->preview_path)->not->toBeNull();
 
     Http::assertSent(function (Request $request): bool {
         return $request->url() === 'https://konachan.com/image/post-401288.jpg';
@@ -126,6 +149,7 @@ it('retries failed posts on later runs while they are still under the attempt li
         'md5' => $md5,
         'file_ext' => 'jpg',
         'source_file_url' => 'https://konachan.com/image/post-401291.jpg',
+        'source_preview_url' => 'https://konachan.com/data/preview/post-401291.jpg',
         'download_status' => Post::STATUS_FAILED,
         'download_attempts' => 1,
         'last_download_error' => 'database is locked',
@@ -133,6 +157,7 @@ it('retries failed posts on later runs while they are still under the attempt li
 
     Http::fake([
         'https://konachan.com/image/post-401291.jpg' => Http::response($fileContents, 200),
+        'https://konachan.com/data/preview/post-401291.jpg' => Http::response('preview', 200),
     ]);
 
     app(ProcessPendingPostDownload::class)->handle(app(ProcessPendingPostDownloadAction::class));
@@ -142,6 +167,7 @@ it('retries failed posts on later runs while they are still under the attempt li
     expect($post->download_status)->toBe(Post::STATUS_DOWNLOADED)
         ->and($post->download_attempts)->toBe(2)
         ->and($post->downloaded_at)->not->toBeNull()
+        ->and($post->preview_path)->not->toBeNull()
         ->and($post->last_download_error)->toBeNull();
 });
 
@@ -167,6 +193,34 @@ it('does not retry failed posts that already exhausted the attempt limit', funct
 
     expect($post->download_status)->toBe(Post::STATUS_FAILED)
         ->and($post->download_attempts)->toBe(Post::MAX_DOWNLOAD_ATTEMPTS);
+
+    Http::assertNothingSent();
+});
+
+it('deletes deleted posts without a downloadable source before trying to download them', function () {
+    Storage::fake('local');
+
+    $post = Post::query()->create([
+        'source_site' => 'konachan',
+        'source_post_id' => 985,
+        'md5' => '45e2a4f059686c9df236b228574455dc',
+        'file_ext' => 'jpg',
+        'source_file_url' => '',
+        'source_preview_url' => 'https://konachan.com/deleted-preview.png',
+        'download_status' => Post::STATUS_PENDING,
+        'source_payload' => [
+            'status' => 'deleted',
+            'flag_detail' => [
+                'reason' => 'dupe',
+            ],
+        ],
+    ]);
+
+    Http::fake();
+
+    app(ProcessPendingPostDownload::class)->handle(app(ProcessPendingPostDownloadAction::class));
+
+    expect(Post::query()->whereKey($post->getKey())->exists())->toBeFalse();
 
     Http::assertNothingSent();
 });

@@ -77,6 +77,10 @@ class PostForm
                             ->nullable()
                             ->maxLength(255)
                             ->columnSpanFull(),
+                        TextInput::make('preview_path')
+                            ->nullable()
+                            ->maxLength(255)
+                            ->columnSpanFull(),
                         Select::make('download_status')
                             ->required()
                             ->options([

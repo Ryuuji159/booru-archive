@@ -98,13 +98,16 @@ class ProcessPendingScrapeRequestAction
             );
 
             foreach ($pagePosts as $postPayload) {
-                $this->storePostFromPayload(
+                $wasStored = $this->storePostFromPayload(
                     sourceSite: $scrapeRequest->site,
                     payload: $postPayload,
                 );
+
+                if ($wasStored) {
+                    $discoveredPostsCount++;
+                }
             }
 
-            $discoveredPostsCount += count($pagePosts);
             $scrapeRequest->forceFill([
                 'discovered_posts_count' => $discoveredPostsCount,
             ])->save();
@@ -117,8 +120,14 @@ class ProcessPendingScrapeRequestAction
     /**
      * @param  array<string, mixed>  $payload
      */
-    private function storePostFromPayload(string $sourceSite, array $payload): void
+    private function storePostFromPayload(string $sourceSite, array $payload): bool
     {
+        if (! $this->shouldImportPayload($payload)) {
+            return false;
+        }
+
+        $sourceFileUrl = $this->resolveSourceFileUrl($payload);
+
         $post = Post::query()->updateOrCreate(
             [
                 'source_site' => $sourceSite,
@@ -134,7 +143,7 @@ class ProcessPendingScrapeRequestAction
                 'score' => $this->nullableInteger($payload['score'] ?? null),
                 'author' => filled($payload['author'] ?? null) ? (string) $payload['author'] : null,
                 'source_created_at' => $this->nullableTimestamp($payload['created_at'] ?? null),
-                'source_file_url' => (string) ($payload['file_url'] ?? $payload['sample_url'] ?? $payload['jpeg_url'] ?? ''),
+                'source_file_url' => $sourceFileUrl,
                 'source_preview_url' => filled($payload['preview_url'] ?? null) ? (string) $payload['preview_url'] : null,
                 'source_payload' => $payload,
             ],
@@ -150,6 +159,8 @@ class ProcessPendingScrapeRequestAction
         if ($tagIds !== []) {
             $post->tags()->syncWithoutDetaching($tagIds);
         }
+
+        return true;
     }
 
     private function getTagId(string $tagName): int
@@ -170,7 +181,7 @@ class ProcessPendingScrapeRequestAction
      */
     private function inferFileExtension(array $payload): ?string
     {
-        $fileUrl = $payload['file_url'] ?? $payload['sample_url'] ?? $payload['jpeg_url'] ?? null;
+        $fileUrl = $this->resolveSourceFileUrl($payload);
 
         if (! filled($fileUrl)) {
             return null;
@@ -180,6 +191,26 @@ class ProcessPendingScrapeRequestAction
         $extension = pathinfo((string) $path, PATHINFO_EXTENSION);
 
         return filled($extension) ? strtolower($extension) : null;
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     */
+    private function shouldImportPayload(array $payload): bool
+    {
+        if (($payload['status'] ?? null) === 'deleted') {
+            return false;
+        }
+
+        return filled($this->resolveSourceFileUrl($payload));
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     */
+    private function resolveSourceFileUrl(array $payload): string
+    {
+        return (string) ($payload['file_url'] ?? $payload['sample_url'] ?? $payload['jpeg_url'] ?? '');
     }
 
     private function nullableInteger(mixed $value): ?int

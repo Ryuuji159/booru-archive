@@ -98,3 +98,60 @@ it('marks the scrape request as failed when the source is unsupported', function
     expect($scrapeRequest->status)->toBe(ScrapeRequest::STATUS_FAILED)
         ->and($scrapeRequest->last_error)->toContain('Unsupported scrape source [yandere].');
 });
+
+it('skips deleted or undownloadable posts during scrape import', function () {
+    Http::fake([
+        'https://konachan.com/post.json*' => Http::response([
+            [
+                'id' => 985,
+                'tags' => 'animal_ears duplicate lucky_star',
+                'created_at' => 1200250765,
+                'author' => 'Oyashiro-sama',
+                'score' => 3,
+                'md5' => '45e2a4f059686c9df236b228574455dc',
+                'file_size' => 349462,
+                'preview_url' => 'https://konachan.com/deleted-preview.png',
+                'rating' => 's',
+                'status' => 'deleted',
+                'width' => 1600,
+                'height' => 1200,
+                'flag_detail' => [
+                    'reason' => 'dupe',
+                ],
+            ],
+            [
+                'id' => 401288,
+                'tags' => 'ass blonde_hair blue_eyes walkure_romanze',
+                'created_at' => 1774570395,
+                'author' => 'S17',
+                'score' => 6,
+                'md5' => '07dfd9c5614fbccd40b39a9bd8c86808',
+                'file_size' => 853047,
+                'file_url' => 'https://konachan.com/image/07dfd9c5614fbccd40b39a9bd8c86808/post.jpg',
+                'preview_url' => 'https://konachan.com/data/preview/07/df/07dfd9c5614fbccd40b39a9bd8c86808.jpg',
+                'rating' => 'q',
+                'status' => 'active',
+                'width' => 1920,
+                'height' => 1080,
+            ],
+        ], 200),
+    ]);
+
+    $scrapeRequest = ScrapeRequest::query()->create([
+        'site' => 'konachan',
+        'parameters' => [
+            'tags' => ['walkure_romanze'],
+        ],
+        'status' => ScrapeRequest::STATUS_PENDING,
+    ]);
+
+    app(ProcessPendingScrapeRequest::class)->handle(app(ProcessPendingScrapeRequestAction::class));
+
+    $scrapeRequest->refresh();
+
+    expect($scrapeRequest->status)->toBe(ScrapeRequest::STATUS_COMPLETED)
+        ->and($scrapeRequest->discovered_posts_count)->toBe(1)
+        ->and(Post::query()->count())->toBe(1)
+        ->and(Post::query()->where('source_post_id', 985)->exists())->toBeFalse()
+        ->and(Post::query()->where('source_post_id', 401288)->exists())->toBeTrue();
+});

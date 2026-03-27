@@ -15,6 +15,10 @@ class ProcessPendingPostDownloadAction
 {
     private const BATCH_SIZE = 100;
 
+    private const FULL_DIRECTORY = 'full';
+
+    private const PREVIEW_DIRECTORY = 'preview';
+
     private const SQLITE_LOCK_RETRY_ATTEMPTS = 5;
 
     private const SQLITE_LOCK_RETRY_DELAY_MICROSECONDS = 200_000;
@@ -63,6 +67,12 @@ class ProcessPendingPostDownloadAction
             return null;
         }
 
+        if ($this->shouldDeleteUndownloadablePost($post)) {
+            $this->deletePost($post);
+
+            return null;
+        }
+
         $temporaryFile = tempnam(sys_get_temp_dir(), 'post-download-');
 
         if ($temporaryFile === false) {
@@ -71,8 +81,25 @@ class ProcessPendingPostDownloadAction
             return $post->fresh();
         }
 
+        $previewTemporaryFile = null;
+
+        if (filled($post->source_preview_url)) {
+            $previewTemporaryFile = tempnam(sys_get_temp_dir(), 'post-preview-download-');
+
+            if ($previewTemporaryFile === false) {
+                @unlink($temporaryFile);
+                $this->markAsFailed($post, 'Unable to create a temporary file for the preview download.');
+
+                return $post->fresh();
+            }
+        }
+
         try {
-            $this->downloadToTemporaryFile($post, $temporaryFile);
+            $this->downloadToTemporaryFile(
+                url: $post->source_file_url,
+                temporaryFile: $temporaryFile,
+                label: 'file',
+            );
 
             $actualMd5 = hash_file('md5', $temporaryFile);
 
@@ -80,9 +107,35 @@ class ProcessPendingPostDownloadAction
                 throw new RuntimeException('Unable to calculate the file hash for the downloaded post.');
             }
 
-            $fileExtension = $this->resolveFileExtension($post);
+            if ($previewTemporaryFile) {
+                $this->downloadToTemporaryFile(
+                    url: $post->source_preview_url,
+                    temporaryFile: $previewTemporaryFile,
+                    label: 'preview',
+                );
+            }
+
+            $fileExtension = $this->resolveFileExtension(
+                fallbackExtension: $post->file_ext,
+                url: $post->source_file_url,
+            );
+            $previewExtension = $this->resolveFileExtension(
+                fallbackExtension: null,
+                url: $post->source_preview_url,
+            );
             $storageDisk = $this->resolveStorageDisk($post, $actualMd5);
-            $storagePath = $this->resolveStoragePath($post, $actualMd5, $fileExtension);
+            $storagePath = $this->resolveStoredPath(
+                post: $post,
+                actualMd5: $actualMd5,
+                fileExtension: $fileExtension,
+                field: 'storage_path',
+                directory: self::FULL_DIRECTORY,
+            );
+            $previewPath = $this->resolvePreviewPath(
+                post: $post,
+                actualMd5: $actualMd5,
+                previewExtension: $previewExtension,
+            );
 
             $this->storeTemporaryFile(
                 disk: $storageDisk,
@@ -90,11 +143,20 @@ class ProcessPendingPostDownloadAction
                 temporaryFile: $temporaryFile,
             );
 
+            if ($previewPath && $previewTemporaryFile) {
+                $this->storeTemporaryFile(
+                    disk: $storageDisk,
+                    path: $previewPath,
+                    temporaryFile: $previewTemporaryFile,
+                );
+            }
+
             return $this->finalizeDownloadedPost(
                 post: $post,
                 actualMd5: $actualMd5,
                 storageDisk: $storageDisk,
                 storagePath: $storagePath,
+                previewPath: $previewPath,
                 fileExtension: $fileExtension,
                 temporaryFile: $temporaryFile,
             );
@@ -104,13 +166,17 @@ class ProcessPendingPostDownloadAction
             return $post->fresh();
         } finally {
             @unlink($temporaryFile);
+
+            if ($previewTemporaryFile) {
+                @unlink($previewTemporaryFile);
+            }
         }
     }
 
-    private function downloadToTemporaryFile(Post $post, string $temporaryFile): void
+    private function downloadToTemporaryFile(string $url, string $temporaryFile, string $label): void
     {
-        if (blank($post->source_file_url)) {
-            throw new RuntimeException('The post has no source file URL to download.');
+        if (blank($url)) {
+            throw new RuntimeException("The post has no source {$label} URL to download.");
         }
 
         $response = Http::connectTimeout(10)
@@ -119,10 +185,10 @@ class ProcessPendingPostDownloadAction
             ->withOptions([
                 'sink' => $temporaryFile,
             ])
-            ->get($post->source_file_url);
+            ->get($url);
 
         if ($response->failed()) {
-            throw new RuntimeException("The file download failed with status [{$response->status()}].");
+            throw new RuntimeException("The {$label} download failed with status [{$response->status()}].");
         }
 
         if (filesize($temporaryFile) === 0) {
@@ -130,7 +196,7 @@ class ProcessPendingPostDownloadAction
         }
 
         if (filesize($temporaryFile) === 0) {
-            throw new RuntimeException('The downloaded file is empty.');
+            throw new RuntimeException("The downloaded {$label} is empty.");
         }
     }
 
@@ -146,25 +212,59 @@ class ProcessPendingPostDownloadAction
         return $duplicate?->storage_disk ?: ($post->storage_disk ?: 'local');
     }
 
-    private function resolveStoragePath(Post $post, string $actualMd5, ?string $fileExtension): string
+    private function resolveStoredPath(
+        Post $post,
+        string $actualMd5,
+        ?string $fileExtension,
+        string $field,
+        string $directory,
+    ): string {
+        $duplicate = Post::query()
+            ->where('md5', $actualMd5)
+            ->whereKeyNot($post->getKey())
+            ->whereNotNull($field)
+            ->orderBy('id')
+            ->first();
+
+        return $duplicate?->{$field} ?: $this->buildStoragePath(
+            md5: $actualMd5,
+            directory: $directory,
+            fileExtension: $fileExtension,
+        );
+    }
+
+    private function resolvePreviewPath(Post $post, string $actualMd5, ?string $previewExtension): ?string
     {
         $duplicate = Post::query()
             ->where('md5', $actualMd5)
             ->whereKeyNot($post->getKey())
-            ->whereNotNull('storage_path')
+            ->whereNotNull('preview_path')
             ->orderBy('id')
             ->first();
 
-        return $duplicate?->storage_path ?: $this->buildStoragePath($actualMd5, $fileExtension);
+        if ($duplicate?->preview_path) {
+            return $duplicate->preview_path;
+        }
+
+        if (blank($post->source_preview_url)) {
+            return null;
+        }
+
+        return $this->buildStoragePath(
+            md5: $actualMd5,
+            directory: self::PREVIEW_DIRECTORY,
+            fileExtension: $previewExtension,
+        );
     }
 
-    private function buildStoragePath(string $md5, ?string $fileExtension): string
+    private function buildStoragePath(string $md5, string $directory, ?string $fileExtension): string
     {
         $normalizedMd5 = strtolower($md5);
         $extensionSuffix = filled($fileExtension) ? '.'.strtolower($fileExtension) : '';
 
         return sprintf(
-            '%s/%s/%s/%s%s',
+            '%s/%s/%s/%s/%s%s',
+            $directory,
             substr($normalizedMd5, 0, 2),
             substr($normalizedMd5, 2, 2),
             substr($normalizedMd5, 4, 2),
@@ -199,11 +299,12 @@ class ProcessPendingPostDownloadAction
         string $actualMd5,
         string $storageDisk,
         string $storagePath,
+        ?string $previewPath,
         ?string $fileExtension,
         string $temporaryFile,
     ): Post {
-        return $this->runWithDatabaseLockRetry(function () use ($post, $actualMd5, $storageDisk, $storagePath, $fileExtension, $temporaryFile): Post {
-            return DB::transaction(function () use ($post, $actualMd5, $storageDisk, $storagePath, $fileExtension, $temporaryFile): Post {
+        return $this->runWithDatabaseLockRetry(function () use ($post, $actualMd5, $storageDisk, $storagePath, $previewPath, $fileExtension, $temporaryFile): Post {
+            return DB::transaction(function () use ($post, $actualMd5, $storageDisk, $storagePath, $previewPath, $fileExtension, $temporaryFile): Post {
                 /** @var Post $currentPost */
                 $currentPost = Post::query()
                     ->with('tags:id')
@@ -249,6 +350,7 @@ class ProcessPendingPostDownloadAction
                     'source_preview_url' => $canonicalPost->source_preview_url ?: $currentPost->source_preview_url,
                     'storage_disk' => $storageDisk,
                     'storage_path' => $storagePath,
+                    'preview_path' => $previewPath ?: $canonicalPost->preview_path ?: $currentPost->preview_path,
                     'download_status' => Post::STATUS_DOWNLOADED,
                     'downloaded_at' => now(),
                     'last_download_error' => null,
@@ -267,13 +369,17 @@ class ProcessPendingPostDownloadAction
         });
     }
 
-    private function resolveFileExtension(Post $post): ?string
+    private function resolveFileExtension(?string $fallbackExtension, ?string $url): ?string
     {
-        if (filled($post->file_ext)) {
-            return strtolower((string) $post->file_ext);
+        if (filled($fallbackExtension)) {
+            return strtolower((string) $fallbackExtension);
         }
 
-        $extension = pathinfo(parse_url($post->source_file_url, PHP_URL_PATH) ?: '', PATHINFO_EXTENSION);
+        if (blank($url)) {
+            return null;
+        }
+
+        $extension = pathinfo(parse_url($url, PHP_URL_PATH) ?: '', PATHINFO_EXTENSION);
 
         return filled($extension) ? strtolower((string) $extension) : null;
     }
@@ -294,6 +400,19 @@ class ProcessPendingPostDownloadAction
                     'download_status' => Post::STATUS_FAILED,
                     'last_download_error' => $message,
                 ]);
+        });
+    }
+
+    private function shouldDeleteUndownloadablePost(Post $post): bool
+    {
+        return data_get($post->source_payload, 'status') === 'deleted'
+            && blank($post->source_file_url);
+    }
+
+    private function deletePost(Post $post): void
+    {
+        $this->runWithDatabaseLockRetry(function () use ($post): void {
+            Post::query()->whereKey($post->getKey())->delete();
         });
     }
 

@@ -36,6 +36,7 @@ class Post extends Model
         'source_preview_url',
         'storage_disk',
         'storage_path',
+        'preview_path',
         'download_status',
         'download_attempts',
         'downloaded_at',
