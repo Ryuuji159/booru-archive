@@ -1,7 +1,5 @@
 x-app: &app
-    build:
-        context: .
-        dockerfile: Dockerfile
+    image: git.skrd.fun/skrd/booru-archive:latest
     env_file:
         - .env
     restart: unless-stopped
