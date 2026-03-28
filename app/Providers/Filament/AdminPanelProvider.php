@@ -2,6 +2,7 @@
 
 namespace App\Providers\Filament;
 
+use App\Filament\Widgets\MediaUsageWidget;
 use App\Filament\Widgets\OperationsWidget;
 use App\Filament\Widgets\PostStatusChart;
 use App\Filament\Widgets\RuntimeWidget;
@@ -43,6 +44,7 @@ class AdminPanelProvider extends PanelProvider
             ->widgets([
                 RuntimeWidget::class,
                 OperationsWidget::class,
+                MediaUsageWidget::class,
                 PostStatusChart::class,
                 ScrapeRequestStatusChart::class,
             ])

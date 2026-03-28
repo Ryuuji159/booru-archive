@@ -7,7 +7,7 @@ use Filament\Widgets\ChartWidget;
 
 class ScrapeRequestStatusChart extends ChartWidget
 {
-    protected static ?int $sort = -1;
+    protected static ?int $sort = 0;
 
     protected ?string $heading = 'Scrape request status';
 

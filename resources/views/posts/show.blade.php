@@ -26,15 +26,39 @@
         </div>
     </header>
 
-    <a href="{{ route('posts.media.full', $post) }}" target="_blank" rel="noreferrer" class="block">
-        <section class="flex h-[60vh] items-center justify-center">
+    <section class="relative">
+        <div class="flex h-[60vh] items-center justify-center">
             <img
                 src="{{ route('posts.media.full', $post) }}"
                 alt="Post {{ $post->source_post_id }}"
-                class="max-h-full max-w-full rounded-lg"
+                class="max-h-[60vh] max-w-full rounded-lg"
             >
-        </section>
-    </a>
+        </div>
+
+        <a
+            href="{{ route('posts.media.full', $post) }}"
+            target="_blank"
+            rel="noreferrer"
+            aria-label="Open full image"
+            class="absolute inset-y-0 left-1/4 z-20 w-1/2 touch-manipulation rounded-lg focus-visible:outline-none"
+        ></a>
+
+        @if ($previousUrl)
+            <a
+                href="{{ $previousUrl }}"
+                aria-label="Previous post"
+                class="absolute inset-y-0 left-0 z-10 w-1/4 touch-manipulation rounded-l-lg transition hover:bg-black/10 focus-visible:bg-black/10 focus-visible:outline-none"
+            ></a>
+        @endif
+
+        @if ($nextUrl)
+            <a
+                href="{{ $nextUrl }}"
+                aria-label="Next post"
+                class="absolute inset-y-0 right-0 z-10 w-1/4 touch-manipulation rounded-r-lg transition hover:bg-black/10 focus-visible:bg-black/10 focus-visible:outline-none"
+            ></a>
+        @endif
+    </section>
 
     @if ($contextPosts->isNotEmpty())
         <section class="mt-4">
