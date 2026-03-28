@@ -27,11 +27,11 @@
     </header>
 
     <section class="relative">
-        <div class="flex h-[60vh] items-center justify-center">
+        <div class="flex h-[42svh] items-center justify-center sm:h-[50svh] md:h-[60vh]">
             <img
                 src="{{ route('posts.media.full', $post) }}"
                 alt="Post {{ $post->source_post_id }}"
-                class="max-h-[60vh] max-w-full rounded-lg"
+                class="max-h-[42svh] max-w-full rounded-lg sm:max-h-[50svh] md:max-h-[60vh]"
             >
         </div>
 
