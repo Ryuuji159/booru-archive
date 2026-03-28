@@ -59,6 +59,15 @@ class Post extends Model
         ];
     }
 
+    protected static function booted(): void
+    {
+        static::creating(function (Post $post): void {
+            if (blank($post->storage_disk)) {
+                $post->storage_disk = (string) config('filesystems.media_disk', 'media');
+            }
+        });
+    }
+
     public function tags(): BelongsToMany
     {
         return $this->belongsToMany(Tag::class);

@@ -281,7 +281,7 @@ class ProcessPendingPostDownloadAction
             ->orderBy('id')
             ->first();
 
-        return $duplicate?->storage_disk ?: ($post->storage_disk ?: 'local');
+        return $duplicate?->storage_disk ?: ($post->storage_disk ?: $this->mediaStorageDisk());
     }
 
     private function resolveStoredPath(
@@ -461,6 +461,11 @@ class ProcessPendingPostDownloadAction
         $size = filesize($temporaryFile);
 
         return $size === false ? null : $size;
+    }
+
+    private function mediaStorageDisk(): string
+    {
+        return (string) config('filesystems.media_disk', 'media');
     }
 
     private function markAsFailed(Post $post, string $message): void

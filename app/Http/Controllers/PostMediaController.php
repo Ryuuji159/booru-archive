@@ -26,7 +26,7 @@ class PostMediaController extends Controller
             Response::HTTP_NOT_FOUND,
         );
 
-        $disk = Storage::disk($post->storage_disk ?: 'local');
+        $disk = Storage::disk($post->storage_disk ?: config('filesystems.media_disk', 'media'));
 
         abort_unless($disk->exists($path), Response::HTTP_NOT_FOUND);
 

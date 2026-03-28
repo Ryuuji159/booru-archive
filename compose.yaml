@@ -1,0 +1,20 @@
+services:
+    app:
+        build:
+            context: .
+            dockerfile: Dockerfile
+        env_file:
+            - .env
+        environment:
+            APP_ENV: production
+            APP_DEBUG: "false"
+            APP_URL: http://localhost
+            DB_CONNECTION: sqlite
+            DB_DATABASE: /app/storage/database/database.sqlite
+            SERVER_NAME: :80
+        ports:
+            - "80:80"
+        volumes:
+            - ./docker/database:/app/storage/database
+            - ./docker/media:/app/storage/app/media
+        restart: unless-stopped

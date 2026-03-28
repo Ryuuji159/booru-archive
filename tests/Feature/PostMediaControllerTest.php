@@ -5,13 +5,13 @@ use Illuminate\Support\Facades\Storage;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 it('serves private preview and full files through media routes', function () {
-    Storage::fake('local');
+    Storage::fake('media');
 
     $previewPath = 'preview/aa/bb/cc/example.jpg';
     $fullPath = 'full/aa/bb/cc/example.jpg';
 
-    Storage::disk('local')->put($previewPath, 'preview-bytes');
-    Storage::disk('local')->put($fullPath, 'full-bytes');
+    Storage::disk('media')->put($previewPath, 'preview-bytes');
+    Storage::disk('media')->put($fullPath, 'full-bytes');
 
     $post = Post::query()->create([
         'source_site' => 'konachan',
@@ -19,7 +19,7 @@ it('serves private preview and full files through media routes', function () {
         'md5' => 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
         'file_ext' => 'jpg',
         'source_file_url' => 'https://konachan.com/image/post-1000.jpg',
-        'storage_disk' => 'local',
+        'storage_disk' => 'media',
         'storage_path' => $fullPath,
         'preview_path' => $previewPath,
         'download_status' => Post::STATUS_DOWNLOADED,
@@ -35,7 +35,7 @@ it('serves private preview and full files through media routes', function () {
         ->assertHeader('cache-control', 'max-age=86400, public');
 
     expect($previewResponse->baseResponse)->toBeInstanceOf(BinaryFileResponse::class)
-        ->and($previewResponse->baseResponse->getFile()->getPathname())->toBe(Storage::disk('local')->path($previewPath));
+        ->and($previewResponse->baseResponse->getFile()->getPathname())->toBe(Storage::disk('media')->path($previewPath));
 
     $fullUrl = route('posts.media.full', $post);
 
@@ -47,7 +47,7 @@ it('serves private preview and full files through media routes', function () {
         ->assertHeader('cache-control', 'max-age=86400, public');
 
     expect($fullResponse->baseResponse)->toBeInstanceOf(BinaryFileResponse::class)
-        ->and($fullResponse->baseResponse->getFile()->getPathname())->toBe(Storage::disk('local')->path($fullPath));
+        ->and($fullResponse->baseResponse->getFile()->getPathname())->toBe(Storage::disk('media')->path($fullPath));
 });
 
 it('returns 404 for media routes when the post is not downloadable', function () {

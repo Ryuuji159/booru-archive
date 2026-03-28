@@ -9,8 +9,8 @@ use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
 
-it('downloads the first pending post to the local disk using a hash-based path', function () {
-    Storage::fake('local');
+it('downloads the first pending post to the media disk using a hash-based path', function () {
+    Storage::fake('media');
 
     $fileContents = 'post-image-binary';
     $previewContents = 'post-preview-binary';
@@ -50,14 +50,14 @@ it('downloads the first pending post to the local disk using a hash-based path',
     );
 
     expect($post->download_status)->toBe(Post::STATUS_DOWNLOADED)
-        ->and($post->storage_disk)->toBe('local')
+        ->and($post->storage_disk)->toBe('media')
         ->and($post->storage_path)->toBe($expectedPath)
         ->and($post->preview_path)->toBe($expectedPreviewPath)
         ->and($post->downloaded_at)->not->toBeNull()
         ->and($post->file_size)->toBe(strlen($fileContents));
 
-    Storage::disk('local')->assertExists($expectedPath);
-    Storage::disk('local')->assertExists($expectedPreviewPath);
+    Storage::disk('media')->assertExists($expectedPath);
+    Storage::disk('media')->assertExists($expectedPreviewPath);
 
     Http::assertSent(function (Request $request): bool {
         return $request->url() === 'https://konachan.com/image/post-401288.jpg';
@@ -69,7 +69,7 @@ it('downloads the first pending post to the local disk using a hash-based path',
 });
 
 it('processes multiple pending posts in a single batch and keeps going after a failure', function () {
-    Storage::fake('local');
+    Storage::fake('media');
 
     $firstContents = 'first-post-image';
     $thirdContents = 'third-post-image';
@@ -139,7 +139,7 @@ it('processes multiple pending posts in a single batch and keeps going after a f
 });
 
 it('retries failed posts on later runs while they are still under the attempt limit', function () {
-    Storage::fake('local');
+    Storage::fake('media');
 
     $fileContents = 'retryable-post-image';
     $md5 = md5($fileContents);
@@ -173,7 +173,7 @@ it('retries failed posts on later runs while they are still under the attempt li
 });
 
 it('returns stale downloading posts to pending and retries them on the next pass', function () {
-    Storage::fake('local');
+    Storage::fake('media');
 
     $fileContents = 'stale-downloading-post-image';
     $md5 = md5($fileContents);
@@ -208,7 +208,7 @@ it('returns stale downloading posts to pending and retries them on the next pass
 });
 
 it('does not recycle downloading posts that were updated recently', function () {
-    Storage::fake('local');
+    Storage::fake('media');
 
     $post = Post::query()->create([
         'source_site' => 'konachan',
@@ -236,7 +236,7 @@ it('does not recycle downloading posts that were updated recently', function () 
 });
 
 it('does not retry failed posts that already exhausted the attempt limit', function () {
-    Storage::fake('local');
+    Storage::fake('media');
 
     $post = Post::query()->create([
         'source_site' => 'konachan',
@@ -262,7 +262,7 @@ it('does not retry failed posts that already exhausted the attempt limit', funct
 });
 
 it('deletes deleted posts without a downloadable source before trying to download them', function () {
-    Storage::fake('local');
+    Storage::fake('media');
 
     $post = Post::query()->create([
         'source_site' => 'konachan',
@@ -290,7 +290,7 @@ it('deletes deleted posts without a downloadable source before trying to downloa
 });
 
 it('merges tags into the canonical post and deletes the duplicate when the downloaded hash already exists', function () {
-    Storage::fake('local');
+    Storage::fake('media');
 
     $fileContents = 'duplicate-post-image';
     $md5 = md5($fileContents);
@@ -330,7 +330,7 @@ it('merges tags into the canonical post and deletes the duplicate when the downl
     $canonicalPost->refresh();
 
     expect($canonicalPost->download_status)->toBe(Post::STATUS_DOWNLOADED)
-        ->and($canonicalPost->storage_disk)->toBe('local')
+        ->and($canonicalPost->storage_disk)->toBe('media')
         ->and($canonicalPost->downloaded_at)->not->toBeNull()
         ->and($canonicalPost->tags()->pluck('name')->all())
         ->toMatchArray(['existing_tag', 'new_tag']);
