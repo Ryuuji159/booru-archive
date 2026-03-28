@@ -17,7 +17,7 @@
 
     @if ($posts === [])
         <div class="rounded-xl border border-gray-200 bg-white px-4 py-8 text-center text-sm text-gray-500">
-            Konachan no devolvió resultados para esta muestra inicial o la consulta no pudo completarse.
+            Konachan did not return results for this initial sample, or the query could not be completed.
         </div>
     @else
         <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">

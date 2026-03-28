@@ -10,7 +10,7 @@
 
         @if ($posts->isEmpty())
             <div class="py-16 text-center text-sm text-slate-400">
-                No hay posts para esta búsqueda.
+                No posts found for this search.
             </div>
         @else
             <div class="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">

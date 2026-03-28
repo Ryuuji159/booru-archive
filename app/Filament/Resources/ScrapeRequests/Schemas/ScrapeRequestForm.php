@@ -31,10 +31,6 @@ class ScrapeRequestForm
                                 'cancelled' => 'Cancelled',
                             ])
                             ->default('pending'),
-                        TextInput::make('requested_posts_count')
-                            ->nullable()
-                            ->numeric()
-                            ->minValue(0),
                         TextInput::make('discovered_posts_count')
                             ->required()
                             ->numeric()
@@ -48,7 +44,7 @@ class ScrapeRequestForm
                             ->rule('json')
                             ->formatStateUsing(fn (?array $state): ?string => $state === null ? null : json_encode($state, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES))
                             ->dehydrateStateUsing(fn (?string $state): array => blank($state) ? [] : json_decode($state, true) ?? [])
-                            ->helperText('JSON con los parámetros de búsqueda usados para descubrir posts.')
+                            ->helperText('JSON with the search parameters used to discover posts.')
                             ->columnSpanFull(),
                         Textarea::make('last_error')
                             ->nullable()

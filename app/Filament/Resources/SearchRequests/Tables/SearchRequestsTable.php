@@ -8,6 +8,7 @@ use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 
 class SearchRequestsTable
 {
@@ -16,11 +17,18 @@ class SearchRequestsTable
         return $table
             ->defaultSort('created_at', 'desc')
             ->columns([
-                TextColumn::make('id')
+                TextColumn::make('site')
+                    ->badge()
+                    ->searchable()
                     ->sortable(),
                 TextColumn::make('search_tags')
                     ->label('Tags')
                     ->state(fn (ScrapeRequest $record): string => implode(', ', $record->parameters['tags'] ?? []))
+                    ->searchable(query: function (Builder $query, string $search): Builder {
+                        $escapedSearch = addcslashes($search, '%_\\');
+
+                        return $query->whereRaw('CAST(parameters AS TEXT) LIKE ?', ["%{$escapedSearch}%"]);
+                    })
                     ->wrap(),
                 TextColumn::make('status')
                     ->badge()

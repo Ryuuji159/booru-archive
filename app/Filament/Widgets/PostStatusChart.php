@@ -7,7 +7,11 @@ use Filament\Widgets\ChartWidget;
 
 class PostStatusChart extends ChartWidget
 {
+    protected static ?int $sort = -2;
+
     protected ?string $heading = 'Post download status';
+
+    protected int|string|array $columnSpan = ['lg' => 1];
 
     protected ?string $pollingInterval = '15s';
 

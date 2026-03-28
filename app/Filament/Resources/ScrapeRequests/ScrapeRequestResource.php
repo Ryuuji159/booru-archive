@@ -13,14 +13,19 @@ use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
+use UnitEnum;
 
 class ScrapeRequestResource extends Resource
 {
     protected static ?string $model = ScrapeRequest::class;
 
+    protected static string|UnitEnum|null $navigationGroup = 'Maintenance';
+
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedMagnifyingGlass;
 
     protected static ?string $recordTitleAttribute = 'id';
+
+    protected static ?int $navigationSort = 3;
 
     public static function form(Schema $schema): Schema
     {

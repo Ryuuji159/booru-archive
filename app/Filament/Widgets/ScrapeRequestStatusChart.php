@@ -7,7 +7,11 @@ use Filament\Widgets\ChartWidget;
 
 class ScrapeRequestStatusChart extends ChartWidget
 {
+    protected static ?int $sort = -1;
+
     protected ?string $heading = 'Scrape request status';
+
+    protected int|string|array $columnSpan = ['lg' => 1];
 
     protected ?string $pollingInterval = '15s';
 

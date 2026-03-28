@@ -14,7 +14,7 @@ class SearchRequestForm
         return $schema
             ->components([
                 Section::make('Search tags')
-                    ->description('Edita los tags que se usarán para esta solicitud de búsqueda.')
+                    ->description('Edit the tags that will be used for this search request.')
                     ->schema([
                         Select::make('site')
                             ->required()
@@ -25,7 +25,7 @@ class SearchRequestForm
                             ->required()
                             ->reorderable()
                             ->splitKeys(['Tab', 'Enter', ','])
-                            ->helperText('Cada tag se guarda dentro de parameters.tags.')
+                            ->helperText('Each tag is stored inside parameters.tags.')
                             ->columnSpanFull(),
                     ]),
             ]);

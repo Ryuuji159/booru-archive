@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Model;
 
 class ScrapeRequest extends Model
@@ -20,7 +21,6 @@ class ScrapeRequest extends Model
         'site',
         'parameters',
         'status',
-        'requested_posts_count',
         'discovered_posts_count',
         'started_at',
         'finished_at',
@@ -31,11 +31,26 @@ class ScrapeRequest extends Model
     {
         return [
             'parameters' => 'array',
-            'requested_posts_count' => 'integer',
             'discovered_posts_count' => 'integer',
             'started_at' => 'datetime',
             'finished_at' => 'datetime',
         ];
+    }
+
+    protected function parametersSummary(): Attribute
+    {
+        return Attribute::get(function (): string {
+            $tags = array_values(array_filter(data_get($this->parameters, 'tags', [])));
+
+            if ($tags === []) {
+                return '[]';
+            }
+
+            $preview = array_slice($tags, 0, 3);
+            $suffix = count($tags) > 3 ? ' ...' : '';
+
+            return 'tags: '.implode(', ', $preview).$suffix;
+        });
     }
 
     public function scopePending($query)

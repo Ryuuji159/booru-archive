@@ -32,7 +32,7 @@ class CreateSearchRequest extends CreateRecord
     {
         return [
             Step::make('Tags')
-                ->description('Define la búsqueda.')
+                ->description('Define the search.')
                 ->schema([
                     Select::make('site')
                         ->label('Source')
@@ -48,11 +48,11 @@ class CreateSearchRequest extends CreateRecord
                         ->live()
                         ->reorderable()
                         ->splitKeys(['Tab', 'Enter', ','])
-                        ->helperText('Ingresa uno o más tags. El paso siguiente consultará Konachan y mostrará hasta 6 previews reales.')
+                        ->helperText('Enter one or more tags. The next step will query Konachan and show up to 6 real previews.')
                         ->columnSpanFull(),
                 ]),
             Step::make('Preview')
-                ->description('Resultados obtenidos con la búsqueda realizada.')
+                ->description('Results returned by the search.')
                 ->schema([
                     View::make('filament.resources.search-requests.preview-posts')
                         ->viewData(fn (Get $get, KonachanService $konachanService): array => [
@@ -75,7 +75,6 @@ class CreateSearchRequest extends CreateRecord
                 'tags' => array_values(array_filter($data['tags'] ?? [])),
             ],
             'status' => 'pending',
-            'requested_posts_count' => null,
             'discovered_posts_count' => 0,
             'started_at' => null,
             'finished_at' => null,

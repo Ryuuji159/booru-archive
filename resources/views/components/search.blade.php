@@ -16,15 +16,7 @@
             type="submit"
             class="rounded-lg bg-white px-4 py-3 text-sm font-medium text-slate-950 transition hover:bg-slate-200"
         >
-            Buscar
+            Search
         </button>
-        @if (filled($rawTags))
-            <a
-                href="{{ route('home') }}"
-                class="rounded-lg border border-white/10 px-4 py-3 text-sm text-slate-300 transition hover:bg-white/5"
-            >
-                Limpiar
-            </a>
-        @endif
     </div>
 </form>

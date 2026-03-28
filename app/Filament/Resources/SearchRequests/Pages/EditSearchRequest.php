@@ -23,7 +23,6 @@ class EditSearchRequest extends EditRecord
         return [
             ...$this->record->only([
                 'status',
-                'requested_posts_count',
                 'discovered_posts_count',
                 'started_at',
                 'finished_at',

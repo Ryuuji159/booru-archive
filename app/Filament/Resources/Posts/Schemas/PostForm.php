@@ -120,7 +120,7 @@ class PostForm
                             ->rules(['nullable', 'json'])
                             ->formatStateUsing(fn (?array $state): ?string => $state === null ? null : json_encode($state, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES))
                             ->dehydrateStateUsing(fn (?string $state): ?array => blank($state) ? null : json_decode($state, true))
-                            ->helperText('JSON opcional con la respuesta original del sitio.')
+                            ->helperText('Optional JSON with the site\'s original response.')
                             ->columnSpanFull(),
                     ]),
             ]);

@@ -23,10 +23,9 @@ class ScrapeRequestsTable
                 TextColumn::make('status')
                     ->badge()
                     ->sortable(),
-                TextColumn::make('requested_posts_count')
-                    ->label('Requested')
-                    ->numeric()
-                    ->sortable(),
+                TextColumn::make('parameters_summary')
+                    ->label('Parameters')
+                    ->wrap(),
                 TextColumn::make('discovered_posts_count')
                     ->label('Discovered')
                     ->numeric()

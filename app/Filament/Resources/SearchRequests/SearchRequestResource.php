@@ -13,10 +13,13 @@ use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
+use UnitEnum;
 
 class SearchRequestResource extends Resource
 {
     protected static ?string $model = ScrapeRequest::class;
+
+    protected static string|UnitEnum|null $navigationGroup = 'Overview';
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedMagnifyingGlassCircle;
 
@@ -28,7 +31,7 @@ class SearchRequestResource extends Resource
 
     protected static ?string $pluralModelLabel = 'Search Requests';
 
-    protected static ?int $navigationSort = 2;
+    protected static ?int $navigationSort = -1;
 
     public static function form(Schema $schema): Schema
     {
