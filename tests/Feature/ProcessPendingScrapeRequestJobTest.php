@@ -75,7 +75,11 @@ it('processes the first pending scrape request and creates posts with tags', fun
 
     Http::assertSentCount(1);
     Http::assertSent(function (Request $request): bool {
+        $userAgent = implode(' ', (array) $request->header('User-Agent'));
+
         return str_contains($request->url(), '/post.json')
+            && str_contains($userAgent, config('app.name'))
+            && str_contains($userAgent, config('app.url'))
             && $request['page'] === 1
             && $request['limit'] === 100
             && $request['tags'] === 'rating:safe walkure_romanze';

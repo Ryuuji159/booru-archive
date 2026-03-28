@@ -14,7 +14,9 @@ class KonachanService
     {
         $host = config('services.konachan.host');
 
-        $response = Http::connectTimeout(10)
+        $response = Http::appIdentity()
+            ->acceptJson()
+            ->connectTimeout(10)
             ->timeout(20)
             ->get("{$host}/post.json", [
                 'tags' => implode(' ', $tags),

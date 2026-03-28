@@ -198,7 +198,8 @@ class ProcessPendingPostDownloadAction
         $this->waitForSourceRequestSlot();
 
         try {
-            $response = Http::connectTimeout(10)
+            $response = Http::appIdentity()
+                ->connectTimeout(10)
                 ->timeout(120)
                 ->retry([250, 750, 1500], throw: false)
                 ->withOptions([

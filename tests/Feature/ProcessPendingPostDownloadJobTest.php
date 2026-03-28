@@ -60,11 +60,19 @@ it('downloads the first pending post to the media disk using a hash-based path',
     Storage::disk('media')->assertExists($expectedPreviewPath);
 
     Http::assertSent(function (Request $request): bool {
-        return $request->url() === 'https://konachan.com/image/post-401288.jpg';
+        $userAgent = implode(' ', (array) $request->header('User-Agent'));
+
+        return $request->url() === 'https://konachan.com/image/post-401288.jpg'
+            && str_contains($userAgent, config('app.name'))
+            && str_contains($userAgent, config('app.url'));
     });
 
     Http::assertSent(function (Request $request): bool {
-        return $request->url() === 'https://konachan.com/data/preview/post-401288.jpg';
+        $userAgent = implode(' ', (array) $request->header('User-Agent'));
+
+        return $request->url() === 'https://konachan.com/data/preview/post-401288.jpg'
+            && str_contains($userAgent, config('app.name'))
+            && str_contains($userAgent, config('app.url'));
     });
 });
 
@@ -126,15 +134,27 @@ it('processes multiple pending posts in a single batch and keeps going after a f
         ->and($thirdPost->preview_path)->not->toBeNull();
 
     Http::assertSent(function (Request $request): bool {
-        return $request->url() === 'https://konachan.com/image/post-401288.jpg';
+        $userAgent = implode(' ', (array) $request->header('User-Agent'));
+
+        return $request->url() === 'https://konachan.com/image/post-401288.jpg'
+            && str_contains($userAgent, config('app.name'))
+            && str_contains($userAgent, config('app.url'));
     });
 
     Http::assertSent(function (Request $request): bool {
-        return $request->url() === 'https://konachan.com/image/post-401289.jpg';
+        $userAgent = implode(' ', (array) $request->header('User-Agent'));
+
+        return $request->url() === 'https://konachan.com/image/post-401289.jpg'
+            && str_contains($userAgent, config('app.name'))
+            && str_contains($userAgent, config('app.url'));
     });
 
     Http::assertSent(function (Request $request): bool {
-        return $request->url() === 'https://konachan.com/image/post-401290.png';
+        $userAgent = implode(' ', (array) $request->header('User-Agent'));
+
+        return $request->url() === 'https://konachan.com/image/post-401290.png'
+            && str_contains($userAgent, config('app.name'))
+            && str_contains($userAgent, config('app.url'));
     });
 });
 
