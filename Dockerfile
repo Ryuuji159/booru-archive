@@ -4,7 +4,7 @@ WORKDIR /app
 
 ENV SERVER_NAME=:80
 
-RUN install-php-extensions intl pcntl pdo_sqlite opcache zip
+RUN install-php-extensions intl pcntl pdo_sqlite pdo_pgsql redis opcache zip
 
 COPY --from=composer:2 /usr/bin/composer /usr/local/bin/composer
 

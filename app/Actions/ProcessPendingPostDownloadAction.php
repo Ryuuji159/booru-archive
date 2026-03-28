@@ -18,9 +18,9 @@ class ProcessPendingPostDownloadAction
 
     private const SOURCE_REQUEST_RATE_LIMIT_KEY = 'konachan:post-download:requests';
 
-    private const SQLITE_LOCK_RETRY_ATTEMPTS = 5;
+    private const DATABASE_LOCK_RETRY_ATTEMPTS = 5;
 
-    private const SQLITE_LOCK_RETRY_DELAY_MICROSECONDS = 200_000;
+    private const DATABASE_LOCK_RETRY_DELAY_MICROSECONDS = 200_000;
 
     public function handle(): int
     {
@@ -517,25 +517,31 @@ class ProcessPendingPostDownloadAction
             return $callback();
         } catch (QueryException $exception) {
             if (
-                $attempt >= self::SQLITE_LOCK_RETRY_ATTEMPTS
-                || ! $this->isSqliteLockException($exception)
+                $attempt >= self::DATABASE_LOCK_RETRY_ATTEMPTS
+                || ! $this->isRetryableDatabaseLockException($exception)
             ) {
                 throw $exception;
             }
 
-            usleep(self::SQLITE_LOCK_RETRY_DELAY_MICROSECONDS * $attempt);
+            usleep(self::DATABASE_LOCK_RETRY_DELAY_MICROSECONDS * $attempt);
             $attempt++;
 
             goto beginning;
         }
     }
 
-    private function isSqliteLockException(QueryException $exception): bool
+    private function isRetryableDatabaseLockException(QueryException $exception): bool
     {
         $message = strtolower($exception->getMessage());
+        $code = (string) $exception->getCode();
 
         return str_contains($message, 'database is locked')
             || str_contains($message, 'database table is locked')
-            || str_contains($message, 'general error: 5');
+            || str_contains($message, 'general error: 5')
+            || str_contains($message, 'deadlock detected')
+            || str_contains($message, 'could not serialize access due to concurrent update')
+            || str_contains($message, 'could not obtain lock on row')
+            || str_contains($message, 'canceling statement due to lock timeout')
+            || in_array($code, ['40001', '40P01', '55P03'], true);
     }
 }

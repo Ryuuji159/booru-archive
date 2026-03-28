@@ -1,36 +1,79 @@
-x-app: &app
-    image: git.skrd.fun/skrd/booru-archive:latest
-    env_file:
-        - .env
-    restart: unless-stopped
-
 services:
     app:
-        <<: *app
+        image: git.skrd.fun/skrd/booru-archive:latest
+        build: .
+        restart: unless-stopped
+        env_file:
+            - .env
         environment:
             CONTAINER_ROLE: web
-            DB_DATABASE: /app/storage/database/database.sqlite
         ports:
             - "8080:80"
         volumes:
-            - ./docker/database:/app/storage/database
-            - ./docker/media:/app/storage/app/media
+            - ${DATA_DIR}/media:/app/storage/app/media
+        depends_on:
+            postgres:
+                condition: service_healthy
+            redis:
+                condition: service_healthy
 
     queue:
-        <<: *app
+        image: git.skrd.fun/skrd/booru-archive:latest
+        build: .
+        restart: unless-stopped
+        env_file:
+            - .env
         environment:
             CONTAINER_ROLE: queue
             RUN_MIGRATIONS: "0"
-            DB_DATABASE: /app/storage/database/database.sqlite
         volumes:
-            - ./docker/database:/app/storage/database
-            - ./docker/media:/app/storage/app/media
+            - ${DATA_DIR}/media:/app/storage/app/media
+        depends_on:
+            postgres:
+                condition: service_healthy
+            redis:
+                condition: service_healthy
+
     scheduler:
-        <<: *app
+        image: git.skrd.fun/skrd/booru-archive:latest
+        build: .
+        restart: unless-stopped
+        env_file:
+            - .env
         environment:
             CONTAINER_ROLE: scheduler
             RUN_MIGRATIONS: "0"
-            DB_DATABASE: /app/storage/database/database.sqlite
         volumes:
-            - ./docker/database:/app/storage/database
-            - ./docker/media:/app/storage/app/media
+            - ${DATA_DIR}/media:/app/storage/app/media
+        depends_on:
+            postgres:
+                condition: service_healthy
+            redis:
+                condition: service_healthy
+
+    postgres:
+        image: postgres:17-alpine
+        restart: unless-stopped
+        environment:
+            POSTGRES_DB: ${DB_DATABASE}
+            POSTGRES_USER: ${DB_USERNAME}
+            POSTGRES_PASSWORD: ${DB_PASSWORD}
+        volumes:
+            - ${DATA_DIR}/postgres:/var/lib/postgresql/data
+        healthcheck:
+            test: [ "CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB" ]
+            interval: 10s
+            timeout: 5s
+            retries: 5
+
+    redis:
+        image: redis:8-alpine
+        restart: unless-stopped
+        command: [ "redis-server", "--appendonly", "yes" ]
+        volumes:
+            - ${DATA_DIR}/redis:/data
+        healthcheck:
+            test: [ "CMD", "redis-cli", "ping" ]
+            interval: 10s
+            timeout: 5s
+            retries: 5

@@ -9,7 +9,9 @@ mkdir -p /app/storage/database \
          /app/storage/app/media \
          /app/bootstrap/cache
 
-touch /app/storage/database/database.sqlite
+if [ "${DB_CONNECTION:-sqlite}" = "sqlite" ]; then
+    touch /app/storage/database/database.sqlite
+fi
 
 if [ "$(id -u)" = "0" ]; then
     chown -R www-data:www-data /app/storage /app/bootstrap/cache
