@@ -4,50 +4,33 @@ x-app: &app
         dockerfile: Dockerfile
     env_file:
         - .env
-    environment:
-        APP_ENV: production
-        APP_DEBUG: "false"
-        APP_URL: http://localhost:8080
-        DB_CONNECTION: sqlite
-        DB_DATABASE: /app/storage/database/database.sqlite
-        SERVER_NAME: :80
     restart: unless-stopped
 
 services:
     app:
         <<: *app
+        environment:
+            CONTAINER_ROLE: web
         ports:
             - "8080:80"
         volumes:
-            - ./docker/database:/app/storage/database
-            - ./docker/media:/app/storage/app/media
+            - ./storage:/app/storage
+            - ./database:/app/database
 
     queue:
         <<: *app
         environment:
-            APP_ENV: production
-            APP_DEBUG: "false"
-            APP_URL: http://localhost:8080
-            DB_CONNECTION: sqlite
-            DB_DATABASE: /app/storage/database/database.sqlite
             CONTAINER_ROLE: queue
-            SERVER_NAME: :80
             RUN_MIGRATIONS: "0"
         volumes:
-            - ./docker/database:/app/storage/database
-            - ./docker/media:/app/storage/app/media
+            - ./storage:/app/storage
+            - ./database:/app/database
 
     scheduler:
         <<: *app
         environment:
-            APP_ENV: production
-            APP_DEBUG: "false"
-            APP_URL: http://localhost:8080
-            DB_CONNECTION: sqlite
-            DB_DATABASE: /app/storage/database/database.sqlite
             CONTAINER_ROLE: scheduler
-            SERVER_NAME: :80
             RUN_MIGRATIONS: "0"
         volumes:
-            - ./docker/database:/app/storage/database
-            - ./docker/media:/app/storage/app/media
+            - ./storage:/app/storage
+            - ./database:/app/database

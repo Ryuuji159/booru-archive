@@ -1,0 +1,31 @@
+services:
+  app:
+    ports: !reset [ ]
+    volumes: !override
+      - ${DATA_DIR}/database:/app/storage/database
+      - ${DATA_DIR}/media:/app/storage/app/media
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.booru-archive-web.rule=Host(`${TRAEFIK_HOST}`)
+      - traefik.http.routers.booru-archive-web.entrypoints=web
+      - traefik.http.routers.booru-archive-web.middlewares=redirect-to-https@file
+      - traefik.http.routers.booru-archive.rule=Host(`${TRAEFIK_HOST}`)
+      - traefik.http.routers.booru-archive.entrypoints=websecure
+      - traefik.http.routers.booru-archive.tls.certresolver=cf
+      - traefik.http.services.booru-archive.loadbalancer.server.port=80
+    networks:
+      - default
+      - traefik
+  queue:
+    volumes: !override
+      - ${DATA_DIR}/database:/app/storage/database
+      - ${DATA_DIR}/media:/app/storage/app/media
+  scheduler:
+    volumes: !override
+      - ${DATA_DIR}/database:/app/storage/database
+      - ${DATA_DIR}/media:/app/storage/app/media
+
+networks:
+  traefik:
+    external: true
+    name: traefik
