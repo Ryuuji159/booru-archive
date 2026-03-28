@@ -3,7 +3,7 @@
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
-use Illuminate\Http\Request;
+use Symfony\Component\HttpFoundation\Request;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -12,12 +12,10 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
-        if (app()->environment('production')) {
-            $middleware->trustProxies(
-                ['private_ranges'],
-                Request::HEADER_X_FORWARDED_TRAEFIK,
-            );
-        }
+        $middleware->trustProxies(
+            ['private_ranges'],
+            Request::HEADER_X_FORWARDED_TRAEFIK,
+        );
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         //
