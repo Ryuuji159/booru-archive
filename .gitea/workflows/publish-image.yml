@@ -1,0 +1,38 @@
+name: Publish Docker image
+
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: https://github.com/actions/checkout@v4
+
+      - name: Log in to registry
+        env:
+          REGISTRY_USERNAME: ${{ secrets.REGISTRY_USERNAME }}
+          REGISTRY_PASSWORD: ${{ secrets.REGISTRY_PASSWORD }}
+        run: |
+          echo "$REGISTRY_PASSWORD" | docker login git.skrd.fun -u "$REGISTRY_USERNAME" --password-stdin
+
+      - name: Build and push image
+        env:
+          IMAGE_NAME: git.skrd.fun/skrd/booru-archive
+        run: |
+          if [ "$GITHUB_REF_TYPE" = "tag" ]; then
+            IMAGE_TAG="$GITHUB_REF_NAME"
+          else
+            IMAGE_TAG="$GITHUB_SHA"
+          fi
+
+          docker build -t "$IMAGE_NAME:$IMAGE_TAG" -t "$IMAGE_NAME:latest" .
+          docker push "$IMAGE_NAME:$IMAGE_TAG"
+          docker push "$IMAGE_NAME:latest"
