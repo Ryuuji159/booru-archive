@@ -71,7 +71,7 @@ class PostForm
                     ->schema([
                         TextInput::make('storage_disk')
                             ->required()
-                            ->default('local')
+                            ->default('media')
                             ->maxLength(255),
                         TextInput::make('storage_path')
                             ->nullable()

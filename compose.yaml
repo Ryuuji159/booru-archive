@@ -1,20 +1,53 @@
+x-app: &app
+    build:
+        context: .
+        dockerfile: Dockerfile
+    env_file:
+        - .env
+    environment:
+        APP_ENV: production
+        APP_DEBUG: "false"
+        APP_URL: http://localhost:8080
+        DB_CONNECTION: sqlite
+        DB_DATABASE: /app/storage/database/database.sqlite
+        SERVER_NAME: :80
+    restart: unless-stopped
+
 services:
     app:
-        build:
-            context: .
-            dockerfile: Dockerfile
-        env_file:
-            - .env
-        environment:
-            APP_ENV: production
-            APP_DEBUG: "false"
-            APP_URL: http://localhost
-            DB_CONNECTION: sqlite
-            DB_DATABASE: /app/storage/database/database.sqlite
-            SERVER_NAME: :80
+        <<: *app
         ports:
-            - "80:80"
+            - "8080:80"
         volumes:
             - ./docker/database:/app/storage/database
             - ./docker/media:/app/storage/app/media
-        restart: unless-stopped
+
+    queue:
+        <<: *app
+        environment:
+            APP_ENV: production
+            APP_DEBUG: "false"
+            APP_URL: http://localhost:8080
+            DB_CONNECTION: sqlite
+            DB_DATABASE: /app/storage/database/database.sqlite
+            CONTAINER_ROLE: queue
+            SERVER_NAME: :80
+            RUN_MIGRATIONS: "0"
+        volumes:
+            - ./docker/database:/app/storage/database
+            - ./docker/media:/app/storage/app/media
+
+    scheduler:
+        <<: *app
+        environment:
+            APP_ENV: production
+            APP_DEBUG: "false"
+            APP_URL: http://localhost:8080
+            DB_CONNECTION: sqlite
+            DB_DATABASE: /app/storage/database/database.sqlite
+            CONTAINER_ROLE: scheduler
+            SERVER_NAME: :80
+            RUN_MIGRATIONS: "0"
+        volumes:
+            - ./docker/database:/app/storage/database
+            - ./docker/media:/app/storage/app/media
