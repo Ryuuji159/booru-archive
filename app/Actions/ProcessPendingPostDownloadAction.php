@@ -8,18 +8,15 @@ use Illuminate\Database\QueryException;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\Storage;
 use RuntimeException;
 
 class ProcessPendingPostDownloadAction
 {
-    private const BATCH_SIZE = 100;
-
     private const STALE_DOWNLOADING_AFTER_MINUTES = 15;
 
-    private const FULL_DIRECTORY = 'full';
-
-    private const PREVIEW_DIRECTORY = 'preview';
+    private const SOURCE_REQUEST_RATE_LIMIT_KEY = 'konachan:post-download:requests';
 
     private const SQLITE_LOCK_RETRY_ATTEMPTS = 5;
 
@@ -39,7 +36,7 @@ class ProcessPendingPostDownloadAction
                         [Post::STATUS_PENDING, Post::STATUS_FAILED],
                     )
                     ->orderBy('id')
-                    ->limit(self::BATCH_SIZE)
+                    ->limit($this->downloadBatchSize())
                     ->lockForUpdate()
                     ->get();
 
@@ -148,7 +145,7 @@ class ProcessPendingPostDownloadAction
                 actualMd5: $actualMd5,
                 fileExtension: $fileExtension,
                 field: 'storage_path',
-                directory: self::FULL_DIRECTORY,
+                directory: $this->fullStorageDirectory(),
             );
             $previewPath = $this->resolvePreviewPath(
                 post: $post,
@@ -198,13 +195,19 @@ class ProcessPendingPostDownloadAction
             throw new RuntimeException("The post has no source {$label} URL to download.");
         }
 
-        $response = Http::connectTimeout(10)
-            ->timeout(120)
-            ->retry([250, 750, 1500], throw: false)
-            ->withOptions([
-                'sink' => $temporaryFile,
-            ])
-            ->get($url);
+        $this->waitForSourceRequestSlot();
+
+        try {
+            $response = Http::connectTimeout(10)
+                ->timeout(120)
+                ->retry([250, 750, 1500], throw: false)
+                ->withOptions([
+                    'sink' => $temporaryFile,
+                ])
+                ->get($url);
+        } finally {
+            $this->recordSourceRequestAttempt();
+        }
 
         if ($response->failed()) {
             throw new RuntimeException("The {$label} download failed with status [{$response->status()}].");
@@ -217,6 +220,56 @@ class ProcessPendingPostDownloadAction
         if (filesize($temporaryFile) === 0) {
             throw new RuntimeException("The downloaded {$label} is empty.");
         }
+    }
+
+    private function waitForSourceRequestSlot(): void
+    {
+        $cooldownSeconds = $this->sourceRequestCooldownSeconds();
+
+        if ($cooldownSeconds <= 0) {
+            return;
+        }
+
+        while (RateLimiter::tooManyAttempts(self::SOURCE_REQUEST_RATE_LIMIT_KEY, 1)) {
+            $availableIn = RateLimiter::availableIn(self::SOURCE_REQUEST_RATE_LIMIT_KEY);
+
+            if ($availableIn <= 0) {
+                break;
+            }
+
+            sleep($availableIn);
+        }
+    }
+
+    private function recordSourceRequestAttempt(): void
+    {
+        $cooldownSeconds = $this->sourceRequestCooldownSeconds();
+
+        if ($cooldownSeconds <= 0) {
+            return;
+        }
+
+        RateLimiter::hit(self::SOURCE_REQUEST_RATE_LIMIT_KEY, $cooldownSeconds);
+    }
+
+    private function sourceRequestCooldownSeconds(): int
+    {
+        return max(0, (int) config('services.konachan.download_request_cooldown_seconds', 2));
+    }
+
+    private function downloadBatchSize(): int
+    {
+        return max(1, (int) config('services.konachan.download_batch_size', 100));
+    }
+
+    private function fullStorageDirectory(): string
+    {
+        return (string) config('services.konachan.storage_directories.full', 'full');
+    }
+
+    private function previewStorageDirectory(): string
+    {
+        return (string) config('services.konachan.storage_directories.preview', 'preview');
     }
 
     private function resolveStorageDisk(Post $post, string $actualMd5): string
@@ -271,7 +324,7 @@ class ProcessPendingPostDownloadAction
 
         return $this->buildStoragePath(
             md5: $actualMd5,
-            directory: self::PREVIEW_DIRECTORY,
+            directory: $this->previewStorageDirectory(),
             fileExtension: $previewExtension,
         );
     }

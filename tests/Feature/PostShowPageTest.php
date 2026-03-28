@@ -30,6 +30,7 @@ it('shows a public post page with the full image and relevant metadata', functio
     $response = $this->get(route('posts.show', $post));
 
     $response->assertOk();
+    expect(route('posts.show', $post))->toContain($post->md5);
     $response->assertSee(route('posts.media.full', $post), false);
     $response->assertSee('konachan #1000', false);
     $response->assertSee('Oyashiro-sama', false);
@@ -62,6 +63,7 @@ it('shows previous and next navigation scoped to the current tag filter', functi
         'storage_path' => 'full/aa/aa/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.jpg',
         'preview_path' => 'preview/aa/aa/aa/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.jpg',
         'download_status' => Post::STATUS_DOWNLOADED,
+        'source_created_at' => now()->subMinutes(4),
     ]);
 
     $secondPost = Post::query()->create([
@@ -74,6 +76,7 @@ it('shows previous and next navigation scoped to the current tag filter', functi
         'storage_path' => 'full/ab/ab/ab/abababababababababababababababab.jpg',
         'preview_path' => 'preview/ab/ab/ab/abababababababababababababababab.jpg',
         'download_status' => Post::STATUS_DOWNLOADED,
+        'source_created_at' => now()->subMinutes(3),
     ]);
 
     $currentPost = Post::query()->create([
@@ -86,6 +89,7 @@ it('shows previous and next navigation scoped to the current tag filter', functi
         'storage_path' => 'full/bb/bb/bb/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb.jpg',
         'preview_path' => 'preview/bb/bb/bb/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb.jpg',
         'download_status' => Post::STATUS_DOWNLOADED,
+        'source_created_at' => now()->subMinutes(2),
     ]);
 
     $fourthPost = Post::query()->create([
@@ -98,6 +102,7 @@ it('shows previous and next navigation scoped to the current tag filter', functi
         'storage_path' => 'full/cb/cb/cb/cbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcb.jpg',
         'preview_path' => 'preview/cb/cb/cb/cbcbcbcbcbcbcbcbcbcbcbcbcbcbcbcb.jpg',
         'download_status' => Post::STATUS_DOWNLOADED,
+        'source_created_at' => now()->subMinutes(1),
     ]);
 
     $lastPost = Post::query()->create([
@@ -110,6 +115,7 @@ it('shows previous and next navigation scoped to the current tag filter', functi
         'storage_path' => 'full/cc/cc/cc/cccccccccccccccccccccccccccccccc.jpg',
         'preview_path' => 'preview/cc/cc/cc/cccccccccccccccccccccccccccccccc.jpg',
         'download_status' => Post::STATUS_DOWNLOADED,
+        'source_created_at' => now(),
     ]);
 
     $otherPost = Post::query()->create([
@@ -122,6 +128,7 @@ it('shows previous and next navigation scoped to the current tag filter', functi
         'storage_path' => 'full/dd/dd/dd/dddddddddddddddddddddddddddddddd.jpg',
         'preview_path' => 'preview/dd/dd/dd/dddddddddddddddddddddddddddddddd.jpg',
         'download_status' => Post::STATUS_DOWNLOADED,
+        'source_created_at' => now()->addMinute(),
     ]);
 
     $touhou = Tag::query()->create(['name' => 'touhou']);

@@ -25,14 +25,24 @@ it('serves private preview and full files through media routes', function () {
         'download_status' => Post::STATUS_DOWNLOADED,
     ]);
 
-    $previewResponse = $this->get(route('posts.media.preview', $post))
+    $previewUrl = route('posts.media.preview', $post);
+
+    expect($previewUrl)->toContain('/media/posts/preview/');
+    expect($previewUrl)->toContain($post->md5);
+
+    $previewResponse = $this->get($previewUrl)
         ->assertOk()
         ->assertHeader('cache-control', 'max-age=86400, public');
 
     expect($previewResponse->baseResponse)->toBeInstanceOf(BinaryFileResponse::class)
         ->and($previewResponse->baseResponse->getFile()->getPathname())->toBe(Storage::disk('local')->path($previewPath));
 
-    $fullResponse = $this->get(route('posts.media.full', $post))
+    $fullUrl = route('posts.media.full', $post);
+
+    expect($fullUrl)->toContain('/media/posts/full/');
+    expect($fullUrl)->toContain($post->md5);
+
+    $fullResponse = $this->get($fullUrl)
         ->assertOk()
         ->assertHeader('cache-control', 'max-age=86400, public');
 

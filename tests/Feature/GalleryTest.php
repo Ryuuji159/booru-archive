@@ -56,6 +56,7 @@ it('lists downloaded posts on the home page and filters them by all searched tag
     $response->assertOk();
     $response->assertSee(route('posts.media.preview', $matchingPost), false);
     $response->assertSee(route('posts.show', $matchingPost), false);
+    expect(route('posts.show', $matchingPost))->toContain($matchingPost->md5);
     $response->assertDontSee(route('posts.media.preview', $partialMatchPost), false);
     $response->assertDontSee(route('posts.media.preview', $notReadyPost), false);
     $response->assertSee('value="touhou blonde_hair"', false);

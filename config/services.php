@@ -37,6 +37,11 @@ return [
 
     'konachan' => [
         'host' => env('KONACHAN_HOST', 'https://konachan.com'),
+        'download_batch_size' => env('KONACHAN_DOWNLOAD_BATCH_SIZE', 100),
+        'download_request_cooldown_seconds' => env('KONACHAN_DOWNLOAD_REQUEST_COOLDOWN_SECONDS', 2),
+        'storage_directories' => [
+            'full' => env('KONACHAN_FULL_STORAGE_DIRECTORY', 'full'),
+            'preview' => env('KONACHAN_PREVIEW_STORAGE_DIRECTORY', 'preview'),
+        ],
     ],
-
 ];

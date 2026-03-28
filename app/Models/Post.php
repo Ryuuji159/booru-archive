@@ -87,7 +87,9 @@ class Post extends Model
 
     public function scopeOrderedForGallery(Builder $query): Builder
     {
-        return $query->orderBy('id');
+        return $query
+            ->orderBy('source_created_at', 'asc')
+            ->orderBy('id', 'asc');
     }
 
     /**
