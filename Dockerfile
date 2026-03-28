@@ -4,7 +4,7 @@ WORKDIR /app
 
 ENV SERVER_NAME=:80
 
-RUN install-php-extensions intl pdo_sqlite opcache zip
+RUN install-php-extensions intl pcntl pdo_sqlite opcache zip
 
 COPY --from=composer:2 /usr/bin/composer /usr/local/bin/composer
 
@@ -59,6 +59,6 @@ RUN chmod +x /usr/local/bin/entrypoint.sh
 USER root
 
 ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
-CMD ["--config", "/etc/frankenphp/Caddyfile", "--adapter", "caddyfile"]
+CMD ["php", "artisan", "octane:frankenphp", "--host=0.0.0.0", "--port=80"]
 
 EXPOSE 80

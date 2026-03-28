@@ -27,7 +27,7 @@ case "${CONTAINER_ROLE:-web}" in
         exec php artisan schedule:work
         ;;
     web)
-        exec /usr/local/bin/docker-php-entrypoint "$@"
+        exec "$@"
         ;;
     *)
         echo "Unknown CONTAINER_ROLE: ${CONTAINER_ROLE}" >&2

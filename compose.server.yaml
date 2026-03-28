@@ -1,5 +1,7 @@
 services:
   app:
+    environment:
+      OCTANE_SERVER: frankenphp
     ports: !reset [ ]
     volumes: !override
       - ${DATA_DIR}/database:/app/storage/database

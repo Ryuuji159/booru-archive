@@ -11,26 +11,28 @@ services:
         <<: *app
         environment:
             CONTAINER_ROLE: web
+            DB_DATABASE: /app/storage/database/database.sqlite
         ports:
             - "8080:80"
         volumes:
-            - ./storage:/app/storage
-            - ./database:/app/database
+            - ./docker/database:/app/storage/database
+            - ./docker/media:/app/storage/app/media
 
     queue:
         <<: *app
         environment:
             CONTAINER_ROLE: queue
             RUN_MIGRATIONS: "0"
+            DB_DATABASE: /app/storage/database/database.sqlite
         volumes:
-            - ./storage:/app/storage
-            - ./database:/app/database
-
+            - ./docker/database:/app/storage/database
+            - ./docker/media:/app/storage/app/media
     scheduler:
         <<: *app
         environment:
             CONTAINER_ROLE: scheduler
             RUN_MIGRATIONS: "0"
+            DB_DATABASE: /app/storage/database/database.sqlite
         volumes:
-            - ./storage:/app/storage
-            - ./database:/app/database
+            - ./docker/database:/app/storage/database
+            - ./docker/media:/app/storage/app/media
