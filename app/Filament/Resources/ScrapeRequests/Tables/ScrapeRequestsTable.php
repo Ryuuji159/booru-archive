@@ -30,6 +30,11 @@ class ScrapeRequestsTable
                     ->label('Discovered')
                     ->numeric()
                     ->sortable(),
+                TextColumn::make('last_processed_page')
+                    ->label('Last page')
+                    ->numeric()
+                    ->sortable()
+                    ->toggleable(),
                 TextColumn::make('started_at')
                     ->dateTime()
                     ->sortable()

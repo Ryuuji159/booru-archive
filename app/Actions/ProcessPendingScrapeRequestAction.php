@@ -14,6 +14,8 @@ class ProcessPendingScrapeRequestAction
 {
     private const PAGE_SIZE = 100;
 
+    private const STALE_RUNNING_AFTER_MINUTES = 15;
+
     /**
      * @var array<string, int>
      */
@@ -25,6 +27,8 @@ class ProcessPendingScrapeRequestAction
 
     public function handle(): ?ScrapeRequest
     {
+        $this->releaseStaleRunningRequests();
+
         $scrapeRequest = DB::transaction(function (): ?ScrapeRequest {
             /** @var ?ScrapeRequest $scrapeRequest */
             $scrapeRequest = ScrapeRequest::query()
@@ -39,10 +43,9 @@ class ProcessPendingScrapeRequestAction
 
             $scrapeRequest->forceFill([
                 'status' => ScrapeRequest::STATUS_RUNNING,
-                'started_at' => now(),
+                'started_at' => $scrapeRequest->started_at ?? now(),
                 'finished_at' => null,
                 'last_error' => null,
-                'discovered_posts_count' => 0,
             ])->save();
 
             return $scrapeRequest;
@@ -53,15 +56,15 @@ class ProcessPendingScrapeRequestAction
         }
 
         try {
-            $discoveredPostsCount = match ($scrapeRequest->site) {
+            [$discoveredPostsCount, $completed] = match ($scrapeRequest->site) {
                 'konachan' => $this->processKonachanRequest($scrapeRequest),
                 default => throw new RuntimeException("Unsupported scrape source [{$scrapeRequest->site}]."),
             };
 
             $scrapeRequest->forceFill([
-                'status' => ScrapeRequest::STATUS_COMPLETED,
+                'status' => $completed ? ScrapeRequest::STATUS_COMPLETED : ScrapeRequest::STATUS_PENDING,
                 'discovered_posts_count' => $discoveredPostsCount,
-                'finished_at' => now(),
+                'finished_at' => $completed ? now() : null,
                 'last_error' => null,
             ])->save();
         } catch (\Throwable $exception) {
@@ -75,7 +78,10 @@ class ProcessPendingScrapeRequestAction
         return $scrapeRequest->fresh();
     }
 
-    private function processKonachanRequest(ScrapeRequest $scrapeRequest): int
+    /**
+     * @return array{0: int, 1: bool}
+     */
+    private function processKonachanRequest(ScrapeRequest $scrapeRequest): array
     {
         $tags = collect($scrapeRequest->parameters['tags'] ?? [])
             ->filter(fn (mixed $tag): bool => filled($tag))
@@ -87,8 +93,11 @@ class ProcessPendingScrapeRequestAction
             throw new RuntimeException('Search request has no tags to process.');
         }
 
-        $discoveredPostsCount = 0;
-        $page = 1;
+        $discoveredPostsCount = (int) $scrapeRequest->discovered_posts_count;
+        $page = $this->startingPage($scrapeRequest);
+        $pagesProcessed = 0;
+        $maxPagesPerRun = $this->pagesPerRun();
+        $completed = false;
 
         do {
             $pagePosts = $this->konachanService->posts(
@@ -110,11 +119,37 @@ class ProcessPendingScrapeRequestAction
 
             $scrapeRequest->forceFill([
                 'discovered_posts_count' => $discoveredPostsCount,
+                'last_processed_page' => $page,
             ])->save();
             $page++;
-        } while (count($pagePosts) === self::PAGE_SIZE);
+            $pagesProcessed++;
+            $completed = count($pagePosts) < self::PAGE_SIZE;
+        } while (! $completed && $pagesProcessed < $maxPagesPerRun);
 
-        return $discoveredPostsCount;
+        return [$discoveredPostsCount, $completed];
+    }
+
+    private function releaseStaleRunningRequests(): void
+    {
+        $staleBefore = now()->subMinutes(self::STALE_RUNNING_AFTER_MINUTES);
+
+        ScrapeRequest::query()
+            ->where('status', ScrapeRequest::STATUS_RUNNING)
+            ->where('updated_at', '<=', $staleBefore)
+            ->update([
+                'status' => ScrapeRequest::STATUS_PENDING,
+                'last_error' => $this->staleRunningMessage(),
+            ]);
+    }
+
+    private function startingPage(ScrapeRequest $scrapeRequest): int
+    {
+        return max(1, (int) ($scrapeRequest->last_processed_page ?: 1));
+    }
+
+    private function pagesPerRun(): int
+    {
+        return max(1, (int) config('services.konachan.scrape_pages_per_run', 10));
     }
 
     /**
@@ -160,7 +195,7 @@ class ProcessPendingScrapeRequestAction
             $post->tags()->syncWithoutDetaching($tagIds);
         }
 
-        return true;
+        return $post->wasRecentlyCreated;
     }
 
     private function getTagId(string $tagName): int
@@ -221,5 +256,13 @@ class ProcessPendingScrapeRequestAction
     private function nullableTimestamp(mixed $value): ?Carbon
     {
         return is_numeric($value) ? Carbon::createFromTimestamp((int) $value) : null;
+    }
+
+    private function staleRunningMessage(): string
+    {
+        return sprintf(
+            'Scrape claim expired after %d minutes without updates and was returned to pending.',
+            self::STALE_RUNNING_AFTER_MINUTES,
+        );
     }
 }

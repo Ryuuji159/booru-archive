@@ -3,12 +3,12 @@
 namespace App\Actions;
 
 use App\Models\Post;
+use App\Services\KonachanDownloadRateLimit;
 use Closure;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
-use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\Storage;
 use RuntimeException;
 
@@ -16,11 +16,13 @@ class ProcessPendingPostDownloadAction
 {
     private const STALE_DOWNLOADING_AFTER_MINUTES = 15;
 
-    private const SOURCE_REQUEST_RATE_LIMIT_KEY = 'konachan:post-download:requests';
-
     private const DATABASE_LOCK_RETRY_ATTEMPTS = 5;
 
     private const DATABASE_LOCK_RETRY_DELAY_MICROSECONDS = 200_000;
+
+    public function __construct(
+        private readonly KonachanDownloadRateLimit $downloadRateLimit,
+    ) {}
 
     public function handle(): int
     {
@@ -225,14 +227,8 @@ class ProcessPendingPostDownloadAction
 
     private function waitForSourceRequestSlot(): void
     {
-        $cooldownSeconds = $this->sourceRequestCooldownSeconds();
-
-        if ($cooldownSeconds <= 0) {
-            return;
-        }
-
-        while (RateLimiter::tooManyAttempts(self::SOURCE_REQUEST_RATE_LIMIT_KEY, 1)) {
-            $availableIn = RateLimiter::availableIn(self::SOURCE_REQUEST_RATE_LIMIT_KEY);
+        while ($this->downloadRateLimit->isBlocked()) {
+            $availableIn = $this->downloadRateLimit->availableIn();
 
             if ($availableIn <= 0) {
                 break;
@@ -244,18 +240,7 @@ class ProcessPendingPostDownloadAction
 
     private function recordSourceRequestAttempt(): void
     {
-        $cooldownSeconds = $this->sourceRequestCooldownSeconds();
-
-        if ($cooldownSeconds <= 0) {
-            return;
-        }
-
-        RateLimiter::hit(self::SOURCE_REQUEST_RATE_LIMIT_KEY, $cooldownSeconds);
-    }
-
-    private function sourceRequestCooldownSeconds(): int
-    {
-        return max(0, (int) config('services.konachan.download_request_cooldown_seconds', 2));
+        $this->downloadRateLimit->recordAttempt();
     }
 
     private function downloadBatchSize(): int

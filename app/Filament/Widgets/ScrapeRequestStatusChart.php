@@ -7,9 +7,11 @@ use Filament\Widgets\ChartWidget;
 
 class ScrapeRequestStatusChart extends ChartWidget
 {
-    protected static ?int $sort = 0;
+    protected static ?int $sort = -5;
 
-    protected ?string $heading = 'Scrape request status';
+    protected ?string $heading = 'Scrape requests';
+
+    protected ?string $description = 'Distribution of pending, running, and completed scrapes.';
 
     protected int|string|array $columnSpan = ['lg' => 1];
 

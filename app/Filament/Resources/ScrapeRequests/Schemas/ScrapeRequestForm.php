@@ -36,6 +36,12 @@ class ScrapeRequestForm
                             ->numeric()
                             ->default(0)
                             ->minValue(0),
+                        TextInput::make('last_processed_page')
+                            ->numeric()
+                            ->disabled()
+                            ->dehydrated(false)
+                            ->helperText('Last scrape page saved before the request stopped.')
+                            ->visibleOn('edit'),
                         DateTimePicker::make('started_at'),
                         DateTimePicker::make('finished_at'),
                         Textarea::make('parameters')

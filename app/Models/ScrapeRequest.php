@@ -22,6 +22,7 @@ class ScrapeRequest extends Model
         'parameters',
         'status',
         'discovered_posts_count',
+        'last_processed_page',
         'started_at',
         'finished_at',
         'last_error',
@@ -32,6 +33,7 @@ class ScrapeRequest extends Model
         return [
             'parameters' => 'array',
             'discovered_posts_count' => 'integer',
+            'last_processed_page' => 'integer',
             'started_at' => 'datetime',
             'finished_at' => 'datetime',
         ];

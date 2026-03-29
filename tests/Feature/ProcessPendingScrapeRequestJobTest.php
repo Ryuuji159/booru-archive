@@ -5,6 +5,7 @@ use App\Jobs\ProcessPendingScrapeRequest;
 use App\Models\Post;
 use App\Models\ScrapeRequest;
 use App\Models\Tag;
+use Carbon\CarbonImmutable;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
 
@@ -58,6 +59,7 @@ it('processes the first pending scrape request and creates posts with tags', fun
 
     expect($scrapeRequest->status)->toBe(ScrapeRequest::STATUS_COMPLETED)
         ->and($scrapeRequest->discovered_posts_count)->toBe(2)
+        ->and($scrapeRequest->last_processed_page)->toBe(1)
         ->and($scrapeRequest->started_at)->not->toBeNull()
         ->and($scrapeRequest->finished_at)->not->toBeNull();
 
@@ -155,7 +157,161 @@ it('skips deleted or undownloadable posts during scrape import', function () {
 
     expect($scrapeRequest->status)->toBe(ScrapeRequest::STATUS_COMPLETED)
         ->and($scrapeRequest->discovered_posts_count)->toBe(1)
+        ->and($scrapeRequest->last_processed_page)->toBe(1)
         ->and(Post::query()->count())->toBe(1)
         ->and(Post::query()->where('source_post_id', 985)->exists())->toBeFalse()
         ->and(Post::query()->where('source_post_id', 401288)->exists())->toBeTrue();
+});
+
+it('resumes a stale running scrape request from the last processed page', function () {
+    Http::fake([
+        'https://konachan.com/post.json*' => function (Request $request) {
+            return Http::response([
+                [
+                    'id' => 401289,
+                    'tags' => 'blue_eyes long_hair',
+                    'created_at' => 1774570400,
+                    'author' => 'S19',
+                    'score' => 12,
+                    'md5' => '27dfd9c5614fbccd40b39a9bd8c86810',
+                    'file_size' => 553047,
+                    'file_url' => 'https://konachan.com/image/27dfd9c5614fbccd40b39a9bd8c86810/post.jpg',
+                    'preview_url' => 'https://konachan.com/data/preview/27/df/27dfd9c5614fbccd40b39a9bd8c86810.jpg',
+                    'rating' => 's',
+                    'status' => 'active',
+                    'width' => 1600,
+                    'height' => 900,
+                ],
+            ], 200);
+        },
+    ]);
+
+    $scrapeRequest = ScrapeRequest::query()->create([
+        'site' => 'konachan',
+        'parameters' => [
+            'tags' => ['walkure_romanze'],
+        ],
+        'status' => ScrapeRequest::STATUS_RUNNING,
+        'discovered_posts_count' => 200,
+        'last_processed_page' => 2,
+        'started_at' => CarbonImmutable::now()->subMinutes(20),
+        'finished_at' => null,
+        'last_error' => 'timeout',
+    ]);
+    $scrapeRequest->forceFill([
+        'updated_at' => CarbonImmutable::now()->subMinutes(20),
+    ])->saveQuietly();
+
+    Post::query()->create([
+        'source_site' => 'konachan',
+        'source_post_id' => 401289,
+        'md5' => '27dfd9c5614fbccd40b39a9bd8c86810',
+        'file_ext' => 'jpg',
+        'source_file_url' => 'https://konachan.com/image/27dfd9c5614fbccd40b39a9bd8c86810/post.jpg',
+        'source_preview_url' => 'https://konachan.com/data/preview/27/df/27dfd9c5614fbccd40b39a9bd8c86810.jpg',
+        'download_status' => Post::STATUS_PENDING,
+    ]);
+
+    app(ProcessPendingScrapeRequest::class)->handle(app(ProcessPendingScrapeRequestAction::class));
+
+    $scrapeRequest->refresh();
+
+    expect($scrapeRequest->status)->toBe(ScrapeRequest::STATUS_COMPLETED)
+        ->and($scrapeRequest->discovered_posts_count)->toBe(200)
+        ->and($scrapeRequest->last_processed_page)->toBe(2)
+        ->and($scrapeRequest->last_error)->toBeNull()
+        ->and(Post::query()->where('source_post_id', 401289)->exists())->toBeTrue();
+
+    Http::assertSentCount(1);
+    Http::assertSent(function (Request $request): bool {
+        return str_contains($request->url(), '/post.json')
+            && $request['page'] === 2
+            && $request['limit'] === 100;
+    });
+});
+
+it('does not expire a recently updated running scrape request', function () {
+    Http::fake();
+
+    $scrapeRequest = ScrapeRequest::query()->create([
+        'site' => 'konachan',
+        'parameters' => [
+            'tags' => ['walkure_romanze'],
+        ],
+        'status' => ScrapeRequest::STATUS_RUNNING,
+        'discovered_posts_count' => 12,
+        'last_processed_page' => 4,
+        'started_at' => CarbonImmutable::now()->subMinutes(5),
+        'finished_at' => null,
+        'last_error' => null,
+    ]);
+    $scrapeRequest->forceFill([
+        'updated_at' => CarbonImmutable::now()->subMinutes(5),
+    ])->saveQuietly();
+
+    app(ProcessPendingScrapeRequest::class)->handle(app(ProcessPendingScrapeRequestAction::class));
+
+    $scrapeRequest->refresh();
+
+    expect($scrapeRequest->status)->toBe(ScrapeRequest::STATUS_RUNNING)
+        ->and($scrapeRequest->discovered_posts_count)->toBe(12)
+        ->and($scrapeRequest->last_processed_page)->toBe(4);
+
+    Http::assertNothingSent();
+});
+
+it('processes at most ten pages per scrape run and leaves the request pending when more pages remain', function () {
+    Http::fake([
+        'https://konachan.com/post.json*' => function (Request $request) {
+            $page = (int) $request['page'];
+            $items = [];
+
+            for ($index = 1; $index <= 100; $index++) {
+                $postId = ($page * 1000) + $index;
+
+                $items[] = [
+                    'id' => $postId,
+                    'tags' => '',
+                    'created_at' => 1774570400 + $postId,
+                    'author' => 'S'.$postId,
+                    'score' => $page,
+                    'md5' => str_pad(dechex($postId), 32, '0', STR_PAD_LEFT),
+                    'file_size' => 1000 + $index,
+                    'file_url' => "https://konachan.com/image/{$postId}.jpg",
+                    'preview_url' => "https://konachan.com/data/preview/{$postId}.jpg",
+                    'rating' => 's',
+                    'status' => 'active',
+                    'width' => 1000,
+                    'height' => 1000,
+                ];
+            }
+
+            return Http::response($items, 200);
+        },
+    ]);
+
+    $scrapeRequest = ScrapeRequest::query()->create([
+        'site' => 'konachan',
+        'parameters' => [
+            'tags' => ['walkure_romanze'],
+        ],
+        'status' => ScrapeRequest::STATUS_PENDING,
+    ]);
+
+    app(ProcessPendingScrapeRequest::class)->handle(app(ProcessPendingScrapeRequestAction::class));
+
+    $scrapeRequest->refresh();
+
+    expect($scrapeRequest->status)->toBe(ScrapeRequest::STATUS_PENDING)
+        ->and($scrapeRequest->discovered_posts_count)->toBe(1000)
+        ->and($scrapeRequest->last_processed_page)->toBe(10)
+        ->and($scrapeRequest->finished_at)->toBeNull()
+        ->and(Post::query()->count())->toBe(1000);
+
+    Http::assertSentCount(10);
+    Http::assertSent(function (Request $request): bool {
+        return str_contains($request->url(), '/post.json')
+            && $request['page'] === 10
+            && $request['limit'] === 100;
+    });
 });

@@ -2,6 +2,7 @@
 
 namespace App\Providers\Filament;
 
+use App\Filament\Widgets\DownloadRateLimitWidget;
 use App\Filament\Widgets\MediaUsageWidget;
 use App\Filament\Widgets\OperationsWidget;
 use App\Filament\Widgets\PostStatusChart;
@@ -42,11 +43,12 @@ class AdminPanelProvider extends PanelProvider
             ])
             ->discoverWidgets(in: app_path('Filament/Widgets'), for: 'App\Filament\Widgets')
             ->widgets([
-                RuntimeWidget::class,
-                OperationsWidget::class,
-                MediaUsageWidget::class,
                 PostStatusChart::class,
                 ScrapeRequestStatusChart::class,
+                RuntimeWidget::class,
+                OperationsWidget::class,
+                DownloadRateLimitWidget::class,
+                MediaUsageWidget::class,
             ])
             ->middleware([
                 EncryptCookies::class,
