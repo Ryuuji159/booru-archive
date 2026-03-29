@@ -6,6 +6,7 @@ mkdir -p /app/storage/database \
          /app/storage/framework/views \
          /app/storage/framework/cache/data \
          /app/storage/framework/sessions \
+         /app/storage/logs \
          /app/storage/app/media \
          /app/bootstrap/cache
 

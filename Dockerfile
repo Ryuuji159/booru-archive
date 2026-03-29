@@ -43,6 +43,7 @@ COPY --from=assets /app/public/build ./public/build
 RUN mkdir -p storage/framework/views \
             storage/framework/cache/data \
             storage/framework/sessions \
+            storage/logs \
             storage/database \
             storage/app/media \
             bootstrap/cache \
