@@ -149,7 +149,7 @@ class ProcessPendingScrapeRequestAction
 
     private function pagesPerRun(): int
     {
-        return max(1, (int) config('services.konachan.scrape_pages_per_run', 10));
+        return max(1, (int) config('services.konachan.scrape_pages_per_run', 30));
     }
 
     /**

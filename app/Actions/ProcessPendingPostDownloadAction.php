@@ -3,12 +3,11 @@
 namespace App\Actions;
 
 use App\Models\Post;
-use App\Services\KonachanDownloadRateLimit;
+use App\Services\KonachanService;
 use Closure;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
 use RuntimeException;
 
@@ -21,7 +20,7 @@ class ProcessPendingPostDownloadAction
     private const DATABASE_LOCK_RETRY_DELAY_MICROSECONDS = 200_000;
 
     public function __construct(
-        private readonly KonachanDownloadRateLimit $downloadRateLimit,
+        private readonly KonachanService $konachanService,
     ) {}
 
     public function handle(): int
@@ -113,7 +112,7 @@ class ProcessPendingPostDownloadAction
         }
 
         try {
-            $this->downloadToTemporaryFile(
+            $this->konachanService->downloadToTemporaryFile(
                 url: $post->source_file_url,
                 temporaryFile: $temporaryFile,
                 label: 'file',
@@ -126,7 +125,7 @@ class ProcessPendingPostDownloadAction
             }
 
             if ($previewTemporaryFile) {
-                $this->downloadToTemporaryFile(
+                $this->konachanService->downloadToTemporaryFile(
                     url: $post->source_preview_url,
                     temporaryFile: $previewTemporaryFile,
                     label: 'preview',
@@ -189,58 +188,6 @@ class ProcessPendingPostDownloadAction
                 @unlink($previewTemporaryFile);
             }
         }
-    }
-
-    private function downloadToTemporaryFile(string $url, string $temporaryFile, string $label): void
-    {
-        if (blank($url)) {
-            throw new RuntimeException("The post has no source {$label} URL to download.");
-        }
-
-        $this->waitForSourceRequestSlot();
-
-        try {
-            $response = Http::appIdentity()
-                ->connectTimeout(10)
-                ->timeout(120)
-                ->retry([250, 750, 1500], throw: false)
-                ->withOptions([
-                    'sink' => $temporaryFile,
-                ])
-                ->get($url);
-        } finally {
-            $this->recordSourceRequestAttempt();
-        }
-
-        if ($response->failed()) {
-            throw new RuntimeException("The {$label} download failed with status [{$response->status()}].");
-        }
-
-        if (filesize($temporaryFile) === 0) {
-            file_put_contents($temporaryFile, $response->body());
-        }
-
-        if (filesize($temporaryFile) === 0) {
-            throw new RuntimeException("The downloaded {$label} is empty.");
-        }
-    }
-
-    private function waitForSourceRequestSlot(): void
-    {
-        while ($this->downloadRateLimit->isBlocked()) {
-            $availableIn = $this->downloadRateLimit->availableIn();
-
-            if ($availableIn <= 0) {
-                break;
-            }
-
-            sleep($availableIn);
-        }
-    }
-
-    private function recordSourceRequestAttempt(): void
-    {
-        $this->downloadRateLimit->recordAttempt();
     }
 
     private function downloadBatchSize(): int

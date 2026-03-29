@@ -9,7 +9,7 @@ use Illuminate\Support\Str;
 
 class RuntimeWidget extends StatsOverviewWidget
 {
-    protected static ?int $sort = -4;
+    protected static ?int $sort = -10;
 
     protected ?string $heading = 'Runtime';
 
@@ -19,21 +19,15 @@ class RuntimeWidget extends StatsOverviewWidget
     {
         return [
             Stat::make('Runtime', $this->getRuntimeLabel())
-                ->description($this->getRuntimeDescription())
-                ->descriptionColor($this->isRunningUnderOctane() ? 'success' : 'gray')
                 ->icon($this->isRunningUnderOctane() ? Heroicon::Bolt : Heroicon::ComputerDesktop)
                 ->color($this->isRunningUnderOctane() ? 'success' : 'gray'),
             Stat::make('Octane server', $this->getOctaneServerLabel())
-                ->description($this->isRunningUnderOctane() ? 'Enabled for web requests.' : 'Octane is not handling this request.')
-                ->descriptionColor($this->isRunningUnderOctane() ? 'success' : 'warning')
                 ->icon(Heroicon::CircleStack)
                 ->color($this->isRunningUnderOctane() ? 'success' : 'warning'),
             Stat::make('Queue connection', (string) config('queue.default', 'database'))
-                ->description('Current queue driver.')
                 ->icon(Heroicon::ArrowDownTray)
                 ->color('gray'),
             Stat::make('Cache store', (string) config('cache.default', 'database'))
-                ->description('Current cache driver.')
                 ->icon(Heroicon::ArchiveBox)
                 ->color('gray'),
         ];
@@ -54,23 +48,6 @@ class RuntimeWidget extends StatsOverviewWidget
         }
 
         return 'PHP-FPM';
-    }
-
-    private function getRuntimeDescription(): string
-    {
-        if ($this->isRunningUnderOctane()) {
-            return 'This request is being served by Octane.';
-        }
-
-        if (php_sapi_name() === 'cli-server') {
-            return 'Local development server.';
-        }
-
-        if (app()->runningInConsole()) {
-            return 'Command-line execution.';
-        }
-
-        return 'Standard PHP request lifecycle.';
     }
 
     private function getOctaneServerLabel(): string

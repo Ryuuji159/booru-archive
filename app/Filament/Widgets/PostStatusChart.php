@@ -7,7 +7,7 @@ use Filament\Widgets\ChartWidget;
 
 class PostStatusChart extends ChartWidget
 {
-    protected static ?int $sort = -6;
+    protected static ?int $sort = -9;
 
     protected ?string $heading = 'Post downloads';
 

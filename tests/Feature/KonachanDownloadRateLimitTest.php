@@ -35,7 +35,7 @@ it('renders the download rate limit widget', function (): void {
     $this->actingAs($user);
 
     Livewire::test(DownloadRateLimitWidget::class)
-        ->assertSee('Download rate limit')
+        ->assertSee('Konachan request rate limit')
         ->assertSee('Blocked')
         ->assertSee('Retry in');
 });

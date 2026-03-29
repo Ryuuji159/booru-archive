@@ -10,11 +10,11 @@ use Illuminate\Support\Number;
 
 class DownloadRateLimitWidget extends StatsOverviewWidget
 {
-    protected static ?int $sort = -2;
+    protected static ?int $sort = -5;
 
-    protected ?string $heading = 'Download rate limit';
+    protected ?string $heading = 'Konachan request rate limit';
 
-    protected ?string $description = 'Current cooldown for Konachan file and preview requests.';
+    protected ?string $description = 'Shared cooldown for Konachan scrape, file, and preview requests.';
 
     protected ?string $pollingInterval = '5s';
 
@@ -39,11 +39,9 @@ class DownloadRateLimitWidget extends StatsOverviewWidget
                 ->icon(Heroicon::ArrowPath)
                 ->color('gray'),
             Stat::make('Cooldown', Number::format($cooldownSeconds).'s')
-                ->description('Configured `services.konachan.download_request_cooldown_seconds`.')
                 ->icon(Heroicon::CircleStack)
                 ->color('gray'),
             Stat::make('Attempts in window', Number::format($rateLimit->attempts()))
-                ->description('Rate limiter hits recorded for the current key.')
                 ->icon(Heroicon::ArrowDownTray)
                 ->color('gray'),
         ];

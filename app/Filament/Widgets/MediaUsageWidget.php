@@ -2,20 +2,17 @@
 
 namespace App\Filament\Widgets;
 
+use App\Services\MediaUsage;
 use Filament\Support\Icons\Heroicon;
 use Filament\Widgets\StatsOverviewWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Number;
-use RecursiveDirectoryIterator;
-use RecursiveIteratorIterator;
-use SplFileInfo;
-use Throwable;
 
 class MediaUsageWidget extends StatsOverviewWidget
 {
-    protected static ?int $sort = -2;
+    protected static ?int $sort = -6;
 
     protected ?string $heading = 'Storage';
 
@@ -24,59 +21,40 @@ class MediaUsageWidget extends StatsOverviewWidget
     protected function getStats(): array
     {
         $usage = Cache::remember('dashboard:media-usage', now()->addMinutes(5), function (): array {
-            return $this->calculateMediaUsage();
+            return app(MediaUsage::class)->calculate();
         });
+        $mediaDisk = (string) config('filesystems.media_disk', 'media');
+        $mediaRoot = config('filesystems.disks.'.$mediaDisk.'.root');
 
         return [
-            Stat::make('Space used', Number::fileSize($usage['bytes']))
-                ->description($usage['files'].' files on the media disk.')
+            Stat::make('Space used', Number::fileSize($usage['bytes'], 2))
+                ->description('Used space on the media disk.')
                 ->descriptionColor('gray')
                 ->icon(Heroicon::CircleStack)
+                ->color('gray'),
+            Stat::make('Files', Number::format($usage['files'], 0))
+                ->description('Files on the media disk.')
+                ->descriptionColor('gray')
+                ->icon(Heroicon::DocumentText)
+                ->color('gray'),
+            Stat::make('Disk', $mediaDisk)
+                ->description($this->formatMediaRoot($mediaRoot))
+                ->descriptionColor('gray')
+                ->icon(Heroicon::RectangleStack)
                 ->color('gray'),
         ];
     }
 
-    /**
-     * @return array{bytes: int, files: int}
-     */
-    private function calculateMediaUsage(): array
+    private function formatMediaRoot(mixed $mediaRoot): string
     {
-        $root = config('filesystems.disks.'.config('filesystems.media_disk', 'media').'.root');
-
-        if (! is_string($root) || ! File::isDirectory($root)) {
-            return [
-                'bytes' => 0,
-                'files' => 0,
-            ];
+        if (! is_string($mediaRoot) || $mediaRoot === '') {
+            return 'Media disk root is not configured.';
         }
 
-        $bytes = 0;
-        $files = 0;
-
-        try {
-            $iterator = new RecursiveIteratorIterator(
-                new RecursiveDirectoryIterator($root, RecursiveDirectoryIterator::SKIP_DOTS)
-            );
-
-            /** @var SplFileInfo $file */
-            foreach ($iterator as $file) {
-                if (! $file->isFile()) {
-                    continue;
-                }
-
-                $bytes += $file->getSize() ?: 0;
-                $files++;
-            }
-        } catch (Throwable) {
-            return [
-                'bytes' => 0,
-                'files' => 0,
-            ];
+        if (! File::isDirectory($mediaRoot)) {
+            return 'Media root: '.$mediaRoot;
         }
 
-        return [
-            'bytes' => $bytes,
-            'files' => $files,
-        ];
+        return 'Media root: '.$mediaRoot;
     }
 }
