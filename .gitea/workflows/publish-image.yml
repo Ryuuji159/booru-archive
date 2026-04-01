@@ -25,7 +25,7 @@ jobs:
         with:
           registry: git.skrd.fun
           username: ${{ secrets.REGISTRY_USERNAME }}
-          password: ${{ secrets.REGISTRY_PASSWORD }}
+          password: ${{ secrets.REGISTRY_ACCESS_TOKEN}}
 
       - name: Extract metadata
         id: meta
