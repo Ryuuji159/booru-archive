@@ -16,9 +16,9 @@ if [ "${DB_CONNECTION:-sqlite}" = "sqlite" ]; then
     touch /app/storage/database/database.sqlite
 fi
 
-if [ "$(id -u)" = "0" ]; then
-    chown -R www-data:www-data /app/storage /app/bootstrap/cache
-fi
+# if [ "$(id -u)" = "0" ]; then
+    # chown -R www-data:www-data /app/storage /app/bootstrap/cache
+# fi
 
 if [ "${RUN_MIGRATIONS:-1}" = "1" ]; then
     echo "[entrypoint] Running database migrations"
