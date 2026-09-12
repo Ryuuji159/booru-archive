@@ -2,6 +2,8 @@
 
 set -e
 
+echo "[entrypoint] Starting container with role: ${CONTAINER_ROLE:-web}"
+
 mkdir -p /app/storage/database \
          /app/storage/framework/views \
          /app/storage/framework/cache/data \
@@ -19,8 +21,13 @@ if [ "$(id -u)" = "0" ]; then
 fi
 
 if [ "${RUN_MIGRATIONS:-1}" = "1" ]; then
+    echo "[entrypoint] Running database migrations"
     php artisan migrate --force
+else
+    echo "[entrypoint] Database migrations disabled"
 fi
+
+echo "[entrypoint] Starting process"
 
 case "${CONTAINER_ROLE:-web}" in
     queue)
